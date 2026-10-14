@@ -10,6 +10,7 @@ type YandexSdk = any;
 class YandexBridge {
   private sdk: YandexSdk | null = null;
   private initPromise: Promise<void> | null = null;
+  private gameplayActive = false;
 
   init(): Promise<void> {
     if (this.initPromise) return this.initPromise;
@@ -31,6 +32,11 @@ class YandexBridge {
     return Boolean(this.sdk);
   }
 
+  getLanguage(fallback = 'en'): string {
+    const language = this.sdk?.environment?.i18n?.lang;
+    return typeof language === 'string' && language.length > 0 ? language.toLowerCase() : fallback;
+  }
+
   async gameplayReady(): Promise<void> {
     try {
       await this.sdk?.features?.LoadingAPI?.ready?.();
@@ -39,8 +45,40 @@ class YandexBridge {
     }
   }
 
+  gameplayStart(): void {
+    if (this.gameplayActive) return;
+    this.gameplayActive = true;
+    try {
+      this.sdk?.features?.GameplayAPI?.start?.();
+    } catch (error) {
+      console.warn('[YandexBridge] GameplayAPI.start failed.', error);
+    }
+  }
+
+  gameplayStop(): void {
+    if (!this.gameplayActive) return;
+    this.gameplayActive = false;
+    try {
+      this.sdk?.features?.GameplayAPI?.stop?.();
+    } catch (error) {
+      console.warn('[YandexBridge] GameplayAPI.stop failed.', error);
+    }
+  }
+
+  private mockAdsEnabled(): boolean {
+    try {
+      return !this.sdk && new URLSearchParams(globalThis.location?.search ?? '').get('mockAds') === '1';
+    } catch {
+      return false;
+    }
+  }
+
   showInterstitial(): Promise<void> {
     return new Promise((resolve) => {
+      if (this.mockAdsEnabled()) {
+        globalThis.setTimeout(resolve, 350);
+        return;
+      }
       if (!this.sdk?.adv?.showFullscreenAdv) return resolve();
       this.sdk.adv.showFullscreenAdv({
         callbacks: {
@@ -52,6 +90,15 @@ class YandexBridge {
   }
 
   showRewarded(callbacks: RewardedCallbacks): void {
+    if (this.mockAdsEnabled()) {
+      callbacks.onOpen?.();
+      globalThis.setTimeout(() => {
+        callbacks.onRewarded();
+        callbacks.onClose?.();
+      }, 350);
+      return;
+    }
+
     if (!this.sdk?.adv?.showRewardedVideo) {
       callbacks.onError?.(new Error('Yandex SDK unavailable'));
       return;
@@ -69,6 +116,10 @@ class YandexBridge {
 
   showRewardedAndWait(): Promise<boolean> {
     return new Promise((resolve) => {
+      if (this.mockAdsEnabled()) {
+        globalThis.setTimeout(() => resolve(true), 350);
+        return;
+      }
       if (!this.sdk?.adv?.showRewardedVideo) return resolve(false);
       let rewarded = false;
       let settled = false;
