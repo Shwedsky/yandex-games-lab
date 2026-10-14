@@ -69,17 +69,19 @@ async function screenshot(path) {
   fs.writeFileSync(path, Buffer.from(result.data, 'base64'));
 }
 async function acceptedDrop(x) {
-  for (let attempt=0; attempt<5; attempt += 1) {
-    await clickGame(x, 430);
-    await sleep(330);
-    return;
-  }
+  await clickGame(x, 430);
+  await sleep(330);
 }
 
 await send('Page.enable');
 await send('Runtime.enable');
+// Force Russian for catalog promo capture before the first reload. Production runtime still reads platform language normally.
+await send('Emulation.setLocaleOverride', { locale:'ru-RU' });
+await send('Page.addScriptToEvaluateOnNewDocument', {
+  source: `Object.defineProperty(navigator,'language',{get:()=> 'ru-RU'}); Object.defineProperty(navigator,'languages',{get:()=> ['ru-RU','ru']});`
+});
 await waitForCanvas();
-await sleep(800);
+await sleep(500);
 
 // Fresh Russian Biomass gameplay.
 await evaluate(`localStorage.removeItem(${JSON.stringify(SAVE_KEY)})`);
@@ -112,9 +114,7 @@ await screenshot(`${outDir}/mobile-04-predator-neon.png`);
 const xs = [270,180,360,230,310,145,395,270,210,330,165,375,250,290,190,350];
 let dropIndex = 0;
 for (let i=0; i<120; i += 1) {
-  if (i % 7 === 0 && dropIndex < xs.length) {
-    await clickGame(xs[dropIndex++], 430);
-  }
+  if (i % 7 === 0 && dropIndex < xs.length) await clickGame(xs[dropIndex++], 430);
   await sleep(70);
   await screenshot(`${framesDir}/frame-${String(i).padStart(4,'0')}.png`);
 }
