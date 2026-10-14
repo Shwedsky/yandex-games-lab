@@ -121,4 +121,40 @@ test_hooks = '''  private installLocalTestHooks() {
 if "private installLocalTestHooks()" not in s:
     s = s.replace("  private persist() {", test_hooks + "  private persist() {")
 
+reset_method = '''  private resetRunState() {
+    this.clearEndOverlay();
+    for (const mutant of [...this.getLiveMutants()]) this.removeMutant(mutant);
+    this.mergingBodies.clear();
+    this.activeGenome = genomeById(this.save.selectedGenome);
+    this.score = 0;
+    this.mergeCount = 0;
+    this.dropCount = 0;
+    this.nextTier = 0;
+    this.ended = false;
+    this.rewardBusy = false;
+    this.canDrop = true;
+    this.overflowSince = null;
+    this.revivedThisRun = false;
+    this.endRewardSettled = false;
+    this.runStartedAt = performance.now();
+    this.setDangerProgress(0);
+    this.updateNextPreview();
+    this.refreshHud();
+    if (!document.hidden) {
+      this.matter.world.resume();
+      yandexBridge.gameplayStart();
+    }
+    track('run_restart');
+  }
+
+'''
+if "private resetRunState()" not in s:
+    s = s.replace("  private async rewardDoubleAndRestart() {", reset_method + "  private async rewardDoubleAndRestart() {")
+
+s = s.replace("    if (granted) this.scene.restart();", "    if (granted) this.resetRunState();")
+s = s.replace(
+    "    await yandexBridge.showInterstitial();\n    this.scene.restart();",
+    "    await yandexBridge.showInterstitial();\n    this.resetRunState();"
+)
+
 p.write_text(s)
