@@ -5,7 +5,7 @@ Publisher-first monorepo for fast, measurable HTML5 games targeting Yandex Games
 ## Portfolio
 
 1. **Мутанты: Геномный синтез / Mutants: Genome Merge** (`apps/mutants-merge`) — functionally accepted first market probe. Publication is currently blocked externally because the owner cannot complete the required RYА/Yandex Games onboarding. Resume from the accepted `final-v4` package and Yandex Console debug when onboarding becomes available again.
-2. **Перекуп: с гаража до империи / Reseller: Garage to Empire** (`apps/reseller-empire`) — active second market probe. V2 trading loop, explicit business progression and rebalanced early economy are under human balance review.
+2. **Перекуп: с гаража до империи / Reseller: Garage to Empire** (`apps/reseller-empire`) — active second market probe. V2 rebalance and progression pass is implemented and browser-CI green; the next gate is the human balance/UX pass.
 
 ## Operating rule
 
