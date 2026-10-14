@@ -50,17 +50,13 @@ function send(method, params = {}) {
 }
 
 async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', {
-    expression,
-    awaitPromise: true,
-    returnByValue: true
-  });
+  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
   if (result.exceptionDetails) throw new Error(`Page evaluation failed: ${JSON.stringify(result.exceptionDetails)}`);
   return result.result?.value;
 }
 
 async function waitForCanvas() {
-  for (let i = 0; i < 50; i += 1) {
+  for (let i = 0; i < 60; i += 1) {
     if (await evaluate(`Boolean(document.querySelector('canvas'))`)) return;
     await sleep(100);
   }
@@ -72,13 +68,9 @@ async function clickGame(x, y) {
     const canvas = document.querySelector('canvas');
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    return {
-      x: rect.left + (${x} / 540) * rect.width,
-      y: rect.top + (${y} / 960) * rect.height
-    };
+    return { x: rect.left + (${x} / 540) * rect.width, y: rect.top + (${y} / 960) * rect.height };
   })()`);
   if (!point) throw new Error(`Could not resolve canvas coordinates for ${x},${y}`);
-
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y, button: 'none', buttons: 0 });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1 });
@@ -95,7 +87,7 @@ async function getSave() {
 async function acceptedDrop(x) {
   const before = (await getTelemetry())?.drop ?? 0;
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    await clickGame(x, 360);
+    await clickGame(x, 430);
     await sleep(330);
     const after = (await getTelemetry())?.drop ?? 0;
     if (after > before) return after;
@@ -112,46 +104,75 @@ async function screenshot(path) {
 await send('Page.enable');
 await send('Runtime.enable');
 await waitForCanvas();
-await sleep(400);
+await sleep(500);
 await screenshot('mutants-smoke-start.png');
 
-await clickGame(395, 236);
+// Rewarded upgrade must always use mock flow when ?mockAds=1, even if the SDK object exists locally.
+await clickGame(395, 246);
 await sleep(650);
 
-for (let i = 0; i < 8; i += 1) {
-  await acceptedDrop(270);
-}
+for (let i = 0; i < 8; i += 1) await acceptedDrop(270);
 await sleep(1100);
 
 const telemetry = await getTelemetry();
 const saveAfterPlay = await getSave();
+const biomassDiscoveries = saveAfterPlay?.genomeDiscoveries?.biomass ?? [];
 
 if ((telemetry?.drop ?? 0) < 8) throw new Error(`Expected 8 accepted drops, got ${telemetry?.drop ?? 0}`);
 if ((telemetry?.merge_tier_1 ?? 0) < 1) throw new Error('Expected at least one tier-1 merge');
 if ((telemetry?.reward_upgrade_next_rewarded ?? 0) < 1) throw new Error('Mock rewarded upgrade did not complete');
-if (!Array.isArray(saveAfterPlay?.discovered) || saveAfterPlay.discovered.length < 2) {
-  throw new Error('Expected at least two discovered forms after gameplay');
-}
+if (!Array.isArray(biomassDiscoveries) || biomassDiscoveries.length < 2) throw new Error('Expected at least two Biomass forms after gameplay');
+if ((saveAfterPlay?.dna ?? 0) <= 0 || (saveAfterPlay?.researchDna ?? 0) <= 0) throw new Error('DNA progression did not advance');
 
 await screenshot('mutants-smoke-play.png');
 
-await clickGame(450, 205);
-await sleep(350);
+// Genome lab / 66-form collection.
+await clickGame(365, 203);
+await sleep(400);
 await screenshot('mutants-smoke-collection.png');
-await clickGame(270, 893);
-await sleep(450);
+await clickGame(270, 912);
+await sleep(350);
 
-// Take the reference snapshot at the actual reload boundary, after any final physics/merge callbacks have settled.
+// Seed a deterministic shop balance in the isolated CI profile, then verify spendable DNA and lifetime research diverge correctly.
+await evaluate(`(() => {
+  const key = ${JSON.stringify(SAVE_KEY)};
+  const save = JSON.parse(localStorage.getItem(key) || '{}');
+  save.dna = 1500;
+  save.researchDna = 1500;
+  save.unlockedGenomes = Array.from(new Set([...(save.unlockedGenomes || []), 'biomass', 'predator']));
+  localStorage.setItem(key, JSON.stringify(save));
+  return true;
+})()`);
+await send('Page.reload', { ignoreCache: true });
+await waitForCanvas();
+await sleep(550);
+
+await clickGame(477, 203);
+await sleep(350);
+await clickGame(270, 282);
+await sleep(450);
+await screenshot('mutants-smoke-shop.png');
+
+const saveAfterShop = await getSave();
+if (saveAfterShop?.selectedBackground !== 'neon') throw new Error('Neon background was not equipped after purchase');
+if (!(saveAfterShop?.ownedBackgrounds ?? []).includes('neon')) throw new Error('Purchased background was not persisted as owned');
+if ((saveAfterShop?.dna ?? -1) !== 500) throw new Error(`Expected 500 spendable DNA after 1000-DNA purchase, got ${saveAfterShop?.dna}`);
+if ((saveAfterShop?.researchDna ?? -1) !== 1500) throw new Error('Lifetime research DNA changed when cosmetic DNA was spent');
+if (!(saveAfterShop?.unlockedGenomes ?? []).includes('predator')) throw new Error('Predator genome unlock did not persist');
+
+await clickGame(270, 880);
+await sleep(350);
 const saveAtReloadBoundary = await getSave();
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
-await sleep(500);
+await sleep(550);
 const saveAfterReload = await getSave();
 
-if ((saveAfterReload?.coins ?? -1) !== (saveAtReloadBoundary?.coins ?? -2)) throw new Error('Coins did not persist across reload');
-if ((saveAfterReload?.bestScore ?? -1) !== (saveAtReloadBoundary?.bestScore ?? -2)) throw new Error('Best score did not persist across reload');
-if (JSON.stringify(saveAfterReload?.discovered ?? []) !== JSON.stringify(saveAtReloadBoundary?.discovered ?? [])) {
-  throw new Error('Discovered forms did not persist across reload');
+if ((saveAfterReload?.dna ?? -1) !== (saveAtReloadBoundary?.dna ?? -2)) throw new Error('DNA did not persist across reload');
+if ((saveAfterReload?.researchDna ?? -1) !== (saveAtReloadBoundary?.researchDna ?? -2)) throw new Error('Research DNA did not persist across reload');
+if (saveAfterReload?.selectedBackground !== saveAtReloadBoundary?.selectedBackground) throw new Error('Selected background did not persist across reload');
+if (JSON.stringify(saveAfterReload?.genomeDiscoveries ?? {}) !== JSON.stringify(saveAtReloadBoundary?.genomeDiscoveries ?? {})) {
+  throw new Error('Genome discoveries did not persist across reload');
 }
 
 const report = {
@@ -160,10 +181,13 @@ const report = {
   tier1Merges: telemetry.merge_tier_1 ?? 0,
   tier2Merges: telemetry.merge_tier_2 ?? 0,
   rewardedUpgrade: telemetry.reward_upgrade_next_rewarded ?? 0,
-  discovered: saveAfterReload.discovered?.length ?? 0,
-  coins: saveAfterReload.coins ?? 0,
-  bestScore: saveAfterReload.bestScore ?? 0,
+  biomassDiscovered: biomassDiscoveries.length,
+  dnaAfterCosmeticPurchase: saveAfterReload.dna ?? 0,
+  researchDna: saveAfterReload.researchDna ?? 0,
+  unlockedGenomes: saveAfterReload.unlockedGenomes ?? [],
+  selectedBackground: saveAfterReload.selectedBackground,
   collectionScreenshotTaken: true,
+  shopScreenshotTaken: true,
   reloadPersistence: true
 };
 fs.writeFileSync('mutants-smoke-report.json', JSON.stringify(report, null, 2));
