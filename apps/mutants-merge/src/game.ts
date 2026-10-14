@@ -29,7 +29,7 @@ let locale: Locale = 'en';
 
 const copy = () => locale === 'ru'
   ? {
-      title: 'МУТАНТЫ', hint: 'Нажми в камере, чтобы сбросить форму', score: 'Счёт', best: 'Рекорд',
+      title: 'Мутанты: Геномный синтез', hint: 'Нажми в камере, чтобы сбросить форму', score: 'Счёт', best: 'Рекорд',
       dna: 'ДНК', research: 'Исследование', allGenomes: 'Все геномы открыты', genomes: 'Геномы',
       shop: 'Фоны', gameOver: 'Камера переполнена', restart: 'Ещё раз', remove: 'Убрать верхний',
       upgrade: 'Улучшить след.', adUnavailable: 'Реклама недоступна', final: 'Финальная форма открыта!',
@@ -41,7 +41,7 @@ const copy = () => locale === 'ru'
       backgroundBought: 'Фон куплен', genomeUnlocked: 'Открыт геном', collection: 'Коллекция'
     }
   : {
-      title: 'MUTANTS', hint: 'Tap inside the chamber to drop a lifeform', score: 'Score', best: 'Best',
+      title: 'Mutants: Genome Merge', hint: 'Tap inside the chamber to drop a lifeform', score: 'Score', best: 'Best',
       dna: 'DNA', research: 'Research', allGenomes: 'All genomes unlocked', genomes: 'Genomes',
       shop: 'Backgrounds', gameOver: 'Chamber overflow', restart: 'Play again', remove: 'Remove top',
       upgrade: 'Upgrade next', adUnavailable: 'Ad unavailable', final: 'Final form unlocked!',
@@ -278,7 +278,7 @@ class MergeScene extends Phaser.Scene {
   private createHud() {
     const t = copy();
     this.add.text(WIDTH / 2, 38, t.title, {
-      fontFamily: 'Arial Black, Arial', fontSize: '39px', color: '#ffffff'
+      fontFamily: 'Arial Black, Arial', fontSize: '27px', color: '#ffffff'
     }).setOrigin(0.5);
     this.add.text(WIDTH / 2, 82, t.hint, {
       fontFamily: 'Arial', fontSize: '17px', color: '#9db0c9'
