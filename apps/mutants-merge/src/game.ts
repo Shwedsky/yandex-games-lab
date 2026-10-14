@@ -10,6 +10,8 @@ import {
   type GenomeId,
   type Locale
 } from './content';
+import { renderBackground } from './backgrounds';
+import { createGenomeCreature } from './visuals';
 
 const WIDTH = 540;
 const HEIGHT = 960;
@@ -18,7 +20,8 @@ const OVERFLOW_Y = 390;
 const OVERFLOW_GRACE_MS = 1700;
 const MAX_TIER = 10;
 const TOTAL_FORMS = GENOMES.length * (MAX_TIER + 1);
-const SAVE_KEY = 'yg-lab:mutants:v1';
+const LEGACY_SAVE_KEY = 'yg-lab:mutants:v1';
+const SAVE_KEY = 'yg-lab:mutants:v2';
 const TELEMETRY_KEY = 'yg-lab:mutants:telemetry:v1';
 const RADII = [24, 29, 35, 41, 48, 56, 65, 75, 86, 99, 114];
 
@@ -163,12 +166,18 @@ class MergeScene extends Phaser.Scene {
   private dropCount = 0;
 
   async create() {
-    this.save = normalizeSave(loadLocalSave<LegacySave>(SAVE_KEY, {}));
+    const currentRaw = loadLocalSave<LegacySave>(SAVE_KEY, {});
+    if (Object.keys(currentRaw).length === 0) {
+      const legacy = loadLocalSave<LegacySave>(LEGACY_SAVE_KEY, {});
+      if (Number.isFinite(legacy.bestScore)) currentRaw.bestScore = legacy.bestScore;
+    }
+    this.save = normalizeSave(currentRaw);
     this.refreshUnlocks(false);
     this.activeGenome = genomeById(this.save.selectedGenome);
     this.persist();
     this.runStartedAt = performance.now();
     track('session_start');
+    this.installLocalTestHooks();
 
     this.backgroundLayer = this.add.container(0, 0).setDepth(-20);
     this.applyBackground(this.save.selectedBackground);
@@ -207,6 +216,7 @@ class MergeScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (this.collisionHandler) this.matter.world.off('collisionstart', this.collisionHandler);
       if (this.visibilityHandler) document.removeEventListener('visibilitychange', this.visibilityHandler);
+      if ((globalThis as any).__MUTANTS_TEST__) delete (globalThis as any).__MUTANTS_TEST__;
       yandexBridge.gameplayStop();
     });
 
@@ -243,47 +253,12 @@ class MergeScene extends Phaser.Scene {
   }
 
   private applyBackground(id: BackgroundId) {
-    const bg = backgroundById(id);
-    this.backgroundLayer?.removeAll(true);
-    this.cameras.main.setBackgroundColor(bg.preview[0]);
     if (!this.backgroundLayer) return;
-
-    const base = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, bg.preview[0]);
-    this.backgroundLayer.add(base);
-
-    if (id === 'void') {
-      for (let i = 0; i < 32; i += 1) {
-        const x = 12 + ((i * 79) % 516);
-        const y = 18 + ((i * 137) % 920);
-        const star = this.add.circle(x, y, 1 + (i % 3), i % 5 === 0 ? 0x6f88ad : 0x2d3c55, 0.34);
-        this.backgroundLayer.add(star);
-      }
-    } else if (id === 'neon') {
-      for (let y = 20; y < HEIGHT; y += 72) {
-        this.backgroundLayer.add(this.add.rectangle(WIDTH / 2, y, WIDTH, 1, bg.preview[2], 0.12));
-      }
-      for (let x = 20; x < WIDTH; x += 72) {
-        this.backgroundLayer.add(this.add.rectangle(x, HEIGHT / 2, 1, HEIGHT, bg.preview[2], 0.08));
-      }
-    } else if (id === 'biolab') {
-      for (let i = 0; i < 20; i += 1) {
-        const x = 30 + ((i * 101) % 480);
-        const y = 40 + ((i * 157) % 860);
-        this.backgroundLayer.add(this.add.circle(x, y, 10 + (i % 4) * 8, bg.preview[2], 0.055));
-      }
-    } else if (id === 'reactor') {
-      for (let i = 0; i < 7; i += 1) {
-        this.backgroundLayer.add(this.add.circle(WIDTH / 2, HEIGHT * 0.64, 90 + i * 35, bg.preview[2], 0.018 + i * 0.004));
-      }
-    } else {
-      for (let i = 0; i < 9; i += 1) {
-        this.backgroundLayer.add(this.add.circle(WIDTH / 2, HEIGHT / 2, 50 + i * 46, i % 2 === 0 ? bg.preview[2] : bg.preview[1], 0.02));
-      }
-    }
+    renderBackground(this, this.backgroundLayer, backgroundById(id));
   }
 
   private drawShell() {
-    this.add.rectangle(WIDTH / 2, HEIGHT / 2 + 86, 484, 700, 0x101824, 0.62).setStrokeStyle(4, 0x42536c);
+    this.add.rectangle(WIDTH / 2, HEIGHT / 2 + 86, 484, 700, 0x101824, 0.28).setStrokeStyle(4, 0x42536c);
     this.add.rectangle(WIDTH / 2, CHAMBER.bottom + 18, 470, 24, 0x29384d, 0.92);
     this.add.rectangle(CHAMBER.left - 10, 580, 20, 690, 0x29384d, 0.92);
     this.add.rectangle(CHAMBER.right + 10, 580, 20, 690, 0x29384d, 0.92);
@@ -371,6 +346,18 @@ class MergeScene extends Phaser.Scene {
     this.dangerText?.setVisible(true).setAlpha(0.55 + progress * 0.45);
   }
 
+  private showMockAdOverlay() {
+    if (!yandexBridge.isMockMode()) return () => {};
+    const shade = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x03050a, 0.82).setDepth(115).setInteractive();
+    const label = this.add.text(WIDTH / 2, HEIGHT / 2 - 24, locale === 'ru' ? 'ТЕСТОВАЯ РЕКЛАМА' : 'TEST AD', {
+      fontFamily: 'Arial Black, Arial', fontSize: '27px', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(116);
+    const note = this.add.text(WIDTH / 2, HEIGHT / 2 + 24, locale === 'ru' ? 'Имитация rewarded · 1,4 сек' : 'Rewarded simulation · 1.4 sec', {
+      fontFamily: 'Arial', fontSize: '18px', color: '#9fdcff'
+    }).setOrigin(0.5).setDepth(116);
+    return () => { shade.destroy(); label.destroy(); note.destroy(); };
+  }
+
   private async withRewardedAd(reward: () => void, eventName: string) {
     if (this.rewardBusy) return false;
     this.rewardBusy = true;
@@ -378,6 +365,7 @@ class MergeScene extends Phaser.Scene {
     this.matter.world.pause();
     yandexBridge.gameplayStop();
     track(`${eventName}_offer`);
+    const closeMockOverlay = this.showMockAdOverlay();
     let granted = false;
     try {
       granted = await yandexBridge.showRewardedAndWait(12000);
@@ -395,6 +383,7 @@ class MergeScene extends Phaser.Scene {
       track(`${eventName}_failed`);
       return false;
     } finally {
+      closeMockOverlay();
       this.rewardBusy = false;
       this.canDrop = !this.ended;
       if (!this.ended && !this.hasOverlay() && !document.hidden) {
@@ -449,94 +438,7 @@ class MergeScene extends Phaser.Scene {
   }
 
   private createCreatureGraphic(tier: number, radius: number) {
-    const g = this.add.graphics();
-    const color = this.activeGenome.colors[tier];
-    const dark = this.activeGenome.id === 'abyss' ? 0x08050e : 0x142033;
-
-    if (tier >= 5 || this.activeGenome.id === 'predator') {
-      const spikeCount = Math.min(10, Math.max(3, tier - 2));
-      g.fillStyle(color, 1);
-      for (let i = 0; i < spikeCount; i += 1) {
-        const angle = (Math.PI * 2 * i) / spikeCount;
-        const bx = Math.cos(angle) * radius * 0.82;
-        const by = Math.sin(angle) * radius * 0.82;
-        const tx = Math.cos(angle) * radius * (this.activeGenome.id === 'predator' ? 1.34 : 1.22);
-        const ty = Math.sin(angle) * radius * (this.activeGenome.id === 'predator' ? 1.34 : 1.22);
-        const side = radius * 0.11;
-        g.fillTriangle(
-          bx + Math.cos(angle + Math.PI / 2) * side, by + Math.sin(angle + Math.PI / 2) * side,
-          bx + Math.cos(angle - Math.PI / 2) * side, by + Math.sin(angle - Math.PI / 2) * side,
-          tx, ty
-        );
-      }
-    }
-
-    if (this.activeGenome.id === 'psi' || this.activeGenome.id === 'abyss') {
-      g.lineStyle(Math.max(2, radius * 0.05), color, 0.25);
-      g.strokeCircle(0, 0, radius * 1.18);
-      if (tier >= 5) g.strokeCircle(0, 0, radius * 1.33);
-    }
-
-    g.fillStyle(color, 1);
-    g.fillCircle(0, 0, radius);
-    g.fillStyle(0xffffff, 0.11);
-    g.fillEllipse(-radius * 0.22, -radius * 0.3, radius * 0.72, radius * 0.44);
-    g.lineStyle(Math.max(2, radius * 0.055), 0xffffff, tier === MAX_TIER ? 0.9 : 0.5);
-    g.strokeCircle(0, 0, radius - 1);
-
-    if (this.activeGenome.id === 'cyber') {
-      g.lineStyle(Math.max(2, radius * 0.045), 0x0b1a25, 0.62);
-      g.strokeRect(-radius * 0.54, -radius * 0.54, radius * 1.08, radius * 1.08);
-      g.beginPath();
-      g.moveTo(-radius * 0.72, 0);
-      g.lineTo(radius * 0.72, 0);
-      g.moveTo(0, -radius * 0.72);
-      g.lineTo(0, radius * 0.72);
-      g.strokePath();
-    } else if (this.activeGenome.id === 'parasite') {
-      g.lineStyle(Math.max(2, radius * 0.05), dark, 0.5);
-      for (let i = 0; i < Math.min(6, 2 + Math.floor(tier / 2)); i += 1) {
-        const angle = (Math.PI * 2 * i) / Math.min(6, 2 + Math.floor(tier / 2));
-        g.beginPath();
-        g.moveTo(Math.cos(angle) * radius * 0.4, Math.sin(angle) * radius * 0.4);
-        g.lineTo(Math.cos(angle) * radius * 0.85, Math.sin(angle) * radius * 0.85);
-        g.strokePath();
-      }
-    } else if (tier >= 2) {
-      g.fillStyle(dark, 0.2);
-      const spotCount = Math.min(7, tier + 1);
-      for (let i = 0; i < spotCount; i += 1) {
-        const angle = (Math.PI * 2 * i) / spotCount + 0.35;
-        const d = radius * (0.38 + (i % 2) * 0.14);
-        g.fillCircle(Math.cos(angle) * d, Math.sin(angle) * d, Math.max(3, radius * 0.095));
-      }
-    }
-
-    const eyeCount = this.activeGenome.id === 'abyss' ? (tier >= 6 ? 4 : 1) : tier >= 7 ? 3 : tier >= 3 ? 2 : 1;
-    const eyeY = -radius * 0.12;
-    for (let i = 0; i < eyeCount; i += 1) {
-      const eyeX = (i - (eyeCount - 1) / 2) * radius * 0.38;
-      g.fillStyle(0xffffff, 1);
-      g.fillCircle(eyeX, eyeY, Math.max(4, radius * 0.15));
-      g.fillStyle(this.activeGenome.id === 'psi' ? 0x7d3cff : this.activeGenome.id === 'cyber' ? 0x00e5ff : 0x10151f, 1);
-      g.fillCircle(eyeX + radius * 0.035, eyeY, Math.max(2, radius * 0.073));
-    }
-
-    if (tier >= 4) {
-      g.lineStyle(Math.max(2, radius * 0.045), dark, 0.75);
-      const mouthY = radius * 0.32;
-      g.beginPath();
-      g.moveTo(-radius * 0.24, mouthY);
-      g.lineTo(0, mouthY + radius * 0.12);
-      g.lineTo(radius * 0.24, mouthY);
-      g.strokePath();
-    }
-    if (tier === MAX_TIER) {
-      g.lineStyle(4, 0xffffff, 0.55);
-      g.strokeCircle(0, 0, radius * 0.63);
-      g.strokeCircle(0, 0, radius * 0.45);
-    }
-    return g;
+    return createGenomeCreature(this, this.activeGenome.id, tier, radius, this.activeGenome.colors[tier]);
   }
 
   private syncVisuals() {
@@ -574,7 +476,6 @@ class MergeScene extends Phaser.Scene {
       const gained = (nextTier + 1) * (nextTier + 1) * 10;
       this.score += gained;
       this.mergeCount += 1;
-      this.grantDna(Math.max(1, nextTier * 2));
       track(`merge_tier_${nextTier}`);
       track('score_from_merges', gained);
 
@@ -582,6 +483,7 @@ class MergeScene extends Phaser.Scene {
       if (!discovered.includes(nextTier)) {
         discovered.push(nextTier);
         discovered.sort((u, v) => u - v);
+        this.grantDna(5 + nextTier * 4);
         track(`discover_${this.activeGenome.id}_tier_${nextTier}`);
         const name = this.activeGenome.forms[locale][nextTier];
         this.toast(nextTier === MAX_TIER ? copy().final : `${copy().newForm}: ${name}`);
@@ -886,7 +788,7 @@ class MergeScene extends Phaser.Scene {
   }
 
   private runReward() {
-    return Math.max(25, Math.floor(this.score / 12));
+    return Math.max(20, Math.min(220, 20 + Math.floor(Math.sqrt(this.score) * 0.45)));
   }
 
   private showEndOverlay() {
@@ -969,6 +871,27 @@ class MergeScene extends Phaser.Scene {
   private clearEndOverlay() {
     for (const object of this.endOverlayObjects) object.destroy();
     this.endOverlayObjects = [];
+  }
+
+  private installLocalTestHooks() {
+    try {
+      const params = new URLSearchParams(globalThis.location?.search ?? '');
+      const isLocal = globalThis.location?.hostname === '127.0.0.1' || globalThis.location?.hostname === 'localhost';
+      if (!isLocal || params.get('ciTest') !== '1') return;
+      (globalThis as any).__MUTANTS_TEST__ = {
+        forceGameOver: () => this.endRun(),
+        state: () => ({
+          ended: this.ended,
+          rewardBusy: this.rewardBusy,
+          dna: this.save.dna,
+          researchDna: this.save.researchDna,
+          revivedThisRun: this.revivedThisRun,
+          score: this.score
+        })
+      };
+    } catch {
+      // Local-only diagnostics must never affect gameplay.
+    }
   }
 
   private persist() {
