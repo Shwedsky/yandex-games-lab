@@ -72,8 +72,8 @@ Interstitials are allowed only between completed in-game days, subject to Yandex
 - No external links, real marketplaces, brands or third-party payment UI.
 - Game explicitly uses the normal system cursor and does not request pointer lock.
 
-## Automated regression gate
-Browser CI covers:
+## Automated V2 gate — PASS
+Final browser CI covers and passes:
 - fresh Garage start,
 - normal cursor,
 - daily trend visible,
@@ -87,8 +87,10 @@ Browser CI covers:
 - day transition,
 - persistence after reload.
 
+Latest CI also emits a fresh Windows test kit, Yandex web package and visual smoke evidence.
+
 ## Delivery gates
-1. Human V2 balance/UX pass.
+1. **Human V2 balance/UX pass — NEXT.**
 2. Rewarded/ad regression pass.
 3. RU/EN + Yandex lifecycle pass.
 4. Promo media + submission kit.
