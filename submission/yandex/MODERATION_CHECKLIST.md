@@ -18,7 +18,7 @@
 ## Ads
 
 - [ ] Rewarded: Remove Top works.
-- [ ] Rewarded: Upgrade Next works.
+- [ ] Rewarded: Upgrade Next works and resumes gameplay.
 - [ ] Rewarded: Save Run works and resumes gameplay.
 - [ ] Rewarded: DNA x2 works and starts a clean new run.
 - [ ] Fullscreen ad is requested only at normal restart between runs.
