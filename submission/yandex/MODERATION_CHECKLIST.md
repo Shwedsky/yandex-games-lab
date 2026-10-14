@@ -53,6 +53,7 @@
 - [ ] Categories: Puzzles + Casual.
 - [ ] Cloud Saves: OFF.
 - [ ] Delayed publication: ON for first release.
+- [ ] Delayed-publication reason entered if Console requests it.
 - [ ] RU/EN metadata copied from `METADATA.md`.
 - [ ] Developer moderation comment copied from `METADATA.md`.
 
@@ -66,6 +67,7 @@
 - [ ] At least two 16:9 desktop screenshots if Desktop is selected.
 - [ ] Screenshots are actual gameplay and contain no OS/Yandex UI.
 - [ ] Icon/cover are promo art, not raw gameplay screenshots.
+- [ ] Horizontal and vertical gameplay MP4 can be uploaded as optional promotion materials.
 
 ## Human owner gate
 
