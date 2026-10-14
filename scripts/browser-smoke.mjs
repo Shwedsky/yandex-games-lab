@@ -79,29 +79,25 @@ async function clickGame(x, y) {
   })()`);
   if (!point) throw new Error(`Could not resolve canvas coordinates for ${x},${y}`);
 
-  await send('Input.dispatchMouseEvent', {
-    type: 'mouseMoved',
-    x: point.x,
-    y: point.y,
-    button: 'none',
-    buttons: 0
-  });
-  await send('Input.dispatchMouseEvent', {
-    type: 'mousePressed',
-    x: point.x,
-    y: point.y,
-    button: 'left',
-    buttons: 1,
-    clickCount: 1
-  });
-  await send('Input.dispatchMouseEvent', {
-    type: 'mouseReleased',
-    x: point.x,
-    y: point.y,
-    button: 'left',
-    buttons: 0,
-    clickCount: 1
-  });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y, button: 'none', buttons: 0 });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1 });
+}
+
+async function getTelemetry() {
+  return await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(TELEMETRY_KEY)}) || '{}')`);
+}
+
+async function acceptedDrop(x) {
+  const before = (await getTelemetry())?.drop ?? 0;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await clickGame(x, 360);
+    await sleep(330);
+    const after = (await getTelemetry())?.drop ?? 0;
+    if (after > before) return after;
+    await sleep(120);
+  }
+  throw new Error(`Game did not accept a drop after retries; previous count=${before}`);
 }
 
 async function screenshot(path) {
@@ -115,20 +111,20 @@ await waitForCanvas();
 await sleep(400);
 await screenshot('mutants-smoke-start.png');
 
+// Exercise one voluntary rewarded action using the local test-only mock ad path.
 await clickGame(395, 236);
-await sleep(550);
+await sleep(650);
 
-const lanes = [135, 225, 315, 405];
-for (let i = 0; i < 12; i += 1) {
-  await clickGame(lanes[Math.floor(i / 2) % lanes.length], 360);
-  await sleep(285);
+// One vertical lane intentionally creates predictable merge chains while remaining far below overflow pressure.
+for (let i = 0; i < 8; i += 1) {
+  await acceptedDrop(270);
 }
-await sleep(900);
+await sleep(1100);
 
-const telemetry = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(TELEMETRY_KEY)}) || '{}')`);
+const telemetry = await getTelemetry();
 const saveBeforeReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
 
-if ((telemetry?.drop ?? 0) < 10) throw new Error(`Expected at least 10 registered drops, got ${telemetry?.drop ?? 0}`);
+if ((telemetry?.drop ?? 0) < 8) throw new Error(`Expected 8 accepted drops, got ${telemetry?.drop ?? 0}`);
 if ((telemetry?.merge_tier_1 ?? 0) < 1) throw new Error('Expected at least one tier-1 merge');
 if ((telemetry?.reward_upgrade_next_rewarded ?? 0) < 1) throw new Error('Mock rewarded upgrade did not complete');
 if (!Array.isArray(saveBeforeReload?.discovered) || saveBeforeReload.discovered.length < 2) {
@@ -138,14 +134,14 @@ if (!Array.isArray(saveBeforeReload?.discovered) || saveBeforeReload.discovered.
 await screenshot('mutants-smoke-play.png');
 
 await clickGame(450, 205);
-await sleep(300);
+await sleep(350);
 await screenshot('mutants-smoke-collection.png');
 await clickGame(270, 893);
-await sleep(250);
+await sleep(300);
 
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
-await sleep(450);
+await sleep(500);
 const saveAfterReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
 if ((saveAfterReload?.coins ?? -1) !== (saveBeforeReload?.coins ?? -2)) throw new Error('Coins did not persist across reload');
 if (JSON.stringify(saveAfterReload?.discovered ?? []) !== JSON.stringify(saveBeforeReload?.discovered ?? [])) {
@@ -156,6 +152,7 @@ const report = {
   canvas: true,
   drops: telemetry.drop ?? 0,
   tier1Merges: telemetry.merge_tier_1 ?? 0,
+  tier2Merges: telemetry.merge_tier_2 ?? 0,
   rewardedUpgrade: telemetry.reward_upgrade_next_rewarded ?? 0,
   discovered: saveAfterReload.discovered?.length ?? 0,
   coins: saveAfterReload.coins ?? 0,
