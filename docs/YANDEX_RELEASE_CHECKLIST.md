@@ -5,11 +5,12 @@ As of the latest owner check, required RYА/Yandex Games onboarding is unavailab
 
 ## Per-game release gate
 - production build succeeds
+- browser smoke passes
+- human balance/UX pass accepted
 - `index.html` at archive root
 - Yandex SDK lifecycle wired
 - RU/EN metadata prepared
 - rewarded/interstitial regressions pass
-- human gameplay/balance pass accepted
 - icon/cover/screenshots prepared
 - Yandex Console draft created when onboarding is available
 - debug panel clean
@@ -17,4 +18,4 @@ As of the latest owner check, required RYА/Yandex Games onboarding is unavailab
 
 ## Current portfolio
 - Mutants: accepted final-v4; waiting on external onboarding
-- Reseller: V2 balance/UX pass active; submission preparation follows acceptance
+- Reseller: V2 code + browser smoke green; **human balance/UX pass is next**, then promo media/submission kit
