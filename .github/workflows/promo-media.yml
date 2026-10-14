@@ -27,22 +27,31 @@ jobs:
           mkdir -p promo-raw/frames promo-media
           python3 -m http.server 4173 --directory apps/mutants-merge/dist >/tmp/promo-server.log 2>&1 &
           SERVER_PID=$!
-          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
           PROFILE=/tmp/mutants-promo-chrome
           rm -rf "$PROFILE"
-          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --lang=ru-RU --remote-debugging-port=0 --user-data-dir="$PROFILE" "http://127.0.0.1:4173/?mockAds=1&ciTest=1" >/tmp/promo-chrome.log 2>&1 &
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --remote-debugging-port=0 --user-data-dir="$PROFILE" "http://127.0.0.1:4173/?mockAds=1&ciTest=1" >/tmp/promo-chrome.log 2>&1 &
           CHROME_PID=$!
           cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
           trap cleanup EXIT
-          for i in $(seq 1 60); do test -s "$PROFILE/DevToolsActivePort" && break; sleep 0.2; done
-          if ! test -s "$PROFILE/DevToolsActivePort"; then cat /tmp/promo-chrome.log; exit 1; fi
+          for i in $(seq 1 50); do
+            if test -s "$PROFILE/DevToolsActivePort"; then break; fi
+            sleep 0.2
+          done
+          if ! test -s "$PROFILE/DevToolsActivePort"; then
+            cp /tmp/promo-chrome.log promo-raw/promo-chrome.log || true
+            cp /tmp/promo-server.log promo-raw/promo-server.log || true
+            cat /tmp/promo-chrome.log
+            exit 1
+          fi
           CDP_PORT=$(head -n1 "$PROFILE/DevToolsActivePort")
           set +e
           CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/capture-promo.mjs >promo-raw/capture.log 2>&1
           CAPTURE_STATUS=$?
           set -e
-          cp /tmp/promo-chrome.log promo-raw/ || true
-          cp /tmp/promo-server.log promo-raw/ || true
+          cp /tmp/promo-chrome.log promo-raw/promo-chrome.log || true
+          cp /tmp/promo-server.log promo-raw/promo-server.log || true
           cat promo-raw/capture.log
           find promo-raw -maxdepth 2 -type f -printf '%P %k KB\n' | sort | tail -30 || true
           if [ "$CAPTURE_STATUS" -ne 0 ]; then exit "$CAPTURE_STATUS"; fi
