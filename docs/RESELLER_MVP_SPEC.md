@@ -1,39 +1,42 @@
-# Reseller — MVP specification
+# Reseller Empire — MVP
 
-## Player promise
-"Start with junk from a garage and build a resale empire."
+## Working title
+**Перекуп: с гаража до империи** / **Reseller: Garage to Empire**
 
-## Session structure
-A session is a sequence of short deals. Each deal should contain a decision, not just a timer.
+## Core promise
+Make repeated buy/prepare/sell decisions in a compact virtual resale business and visibly grow from Garage to Kiosk to Shop.
 
-## Launch categories
-1. Household junk.
-2. Used electronics.
-3. Collectibles.
-4. Premium equipment.
+## MVP loop
+- inspect procedural market listings
+- estimate value
+- negotiate with the seller (maximum two rounds; offers never auto-buy)
+- explicitly confirm purchase
+- optionally prepare an owned item once (`0/1 -> 1/1`)
+- list it
+- receive buyer offers
+- accept/counter/reject
+- realize profit/loss and reputation
+- manually upgrade business when reputation + cash requirements are met
+- end the day and receive a new market/demand trend
 
-## Deal loop
-- Market presents 3 offers.
-- Player chooses one with incomplete information.
-- Inspection reveals condition clues.
-- Optional repair/clean action changes value.
-- Listing price is chosen from a bounded range.
-- Generated buyers arrive with personality/value tolerance.
-- Player accepts, counters, or rejects.
-- Profit/loss updates reputation and bankroll.
+## Progression
+- Garage: 4 slots, ±28% estimates, basic market; Kiosk costs 14 REP + 12,000 virtual RUB
+- Kiosk: 7 slots, ±16% estimates, electronics; Shop costs 45 REP + 60,000 virtual RUB
+- Shop: 10 slots, ±8% estimates, premium/collectible market
 
-## Meta progression
-- Garage -> kiosk -> shop -> premium showroom.
-- Better inspection tools.
-- More simultaneous listings.
-- Access to higher-risk/higher-margin categories.
+## Variety
+Every day has one hot category with +15% resale demand and one cold category with -8%, so the best deal mix changes rather than repeating the same optimization forever.
 
-## Design rule
-No real-money gambling framing. All money and items are fictional game economy only.
+## Monetization
+Optional rewarded ads:
+- exact estimate for one listing
+- market refresh
+- instant buyer for one listing
 
-## Explicit non-goals for v1
-- Real marketplace connectivity.
-- User-generated listings.
-- Player-to-player trading.
-- External backend.
-- Real prizes/coupons.
+Interstitial only between completed in-game days.
+
+## Safety/product boundaries
+Pure virtual economy: no real brands, marketplace links, real-money trading, gambling or loot boxes.
+
+## Release status
+Development/submission prep continues, but public Yandex release is externally blocked until required RYА/Yandex Games onboarding becomes available again.
