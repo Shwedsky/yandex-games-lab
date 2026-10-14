@@ -53,13 +53,22 @@ jobs:
             exit 1
           fi
           CDP_PORT=$(head -n1 "$CHROME_PROFILE/DevToolsActivePort")
-          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/browser-smoke.mjs
+          set +e
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/browser-smoke.mjs >mutants-smoke.log 2>&1
+          SMOKE_STATUS=$?
+          set -e
+          cp /tmp/mutants-chrome.log mutants-chrome.log || true
+          cp /tmp/mutants-server.log mutants-server.log || true
+          cat mutants-smoke.log
+          ls -lah mutants-smoke* mutants-chrome.log mutants-server.log 2>/dev/null || true
+          if [ "$SMOKE_STATUS" -ne 0 ]; then exit "$SMOKE_STATUS"; fi
           test -s mutants-smoke-start.png
           test -s mutants-smoke-play.png
           test -s mutants-smoke-collection.png
           test -s mutants-smoke-report.json
 
       - name: Prepare Windows test kit
+        if: success()
         run: |
           rm -rf test-kit
           mkdir -p test-kit
@@ -69,6 +78,7 @@ jobs:
           cp tools/README_TEST.txt test-kit/
 
       - name: Upload Yandex package
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: mutants-yandex-package
@@ -77,6 +87,7 @@ jobs:
           retention-days: 7
 
       - name: Upload human test kit
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: mutants-test-kit
@@ -85,13 +96,15 @@ jobs:
           retention-days: 7
 
       - name: Upload CI smoke evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mutants-ci-smoke
           path: |
-            mutants-smoke-start.png
-            mutants-smoke-play.png
-            mutants-smoke-collection.png
-            mutants-smoke-report.json
-          if-no-files-found: error
+            mutants-smoke*.png
+            mutants-smoke*.json
+            mutants-smoke.log
+            mutants-chrome.log
+            mutants-server.log
+          if-no-files-found: warn
           retention-days: 7
