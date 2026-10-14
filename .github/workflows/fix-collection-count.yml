@@ -1,0 +1,56 @@
+name: One-shot collection counter fix
+
+on:
+  push:
+    branches:
+      - feature/mutants-playable-v0
+    paths:
+      - .github/workflows/fix-collection-count.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/mutants-playable-v0
+          fetch-depth: 0
+
+      - name: Patch locked-genome discovery accounting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/mutants-merge/src/game.ts')
+          text = path.read_text()
+
+          old = """  for (const genome of GENOMES) if (researchDna >= genome.unlockResearch && !unlocked.includes(genome.id)) unlocked.push(genome.id);\n  const selectedGenome = validGenomeIds.has(raw.selectedGenome as GenomeId) && unlocked.includes(raw.selectedGenome as GenomeId)"""
+          new = """  for (const genome of GENOMES) if (researchDna >= genome.unlockResearch && !unlocked.includes(genome.id)) unlocked.push(genome.id);\n  for (const genome of GENOMES) {\n    if (!unlocked.includes(genome.id)) discoveries[genome.id] = [];\n    else if ((discoveries[genome.id]?.length ?? 0) === 0) discoveries[genome.id] = [0];\n  }\n  const selectedGenome = validGenomeIds.has(raw.selectedGenome as GenomeId) && unlocked.includes(raw.selectedGenome as GenomeId)"""
+          if old not in text:
+              raise SystemExit('normalizeSave patch anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """  private discoveryList(id: GenomeId) {\n    this.save.genomeDiscoveries[id] ??= [0];\n    return this.save.genomeDiscoveries[id]!;\n  }\n\n  private totalDiscoveries() {\n    return GENOMES.reduce((sum, genome) => sum + this.discoveryList(genome.id).length, 0);\n  }"""
+          new = """  private discoveryList(id: GenomeId) {\n    this.save.genomeDiscoveries[id] ??= this.save.unlockedGenomes.includes(id) ? [0] : [];\n    return this.save.genomeDiscoveries[id]!;\n  }\n\n  private totalDiscoveries() {\n    return GENOMES.reduce((sum, genome) => sum + (this.save.genomeDiscoveries[genome.id]?.length ?? 0), 0);\n  }"""
+          if old not in text:
+              raise SystemExit('discoveryList patch anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """        this.save.unlockedGenomes.push(genome.id);\n        this.discoveryList(genome.id);\n        track(`genome_unlocked_${genome.id}`);"""
+          new = """        this.save.unlockedGenomes.push(genome.id);\n        if ((this.save.genomeDiscoveries[genome.id]?.length ?? 0) === 0) this.save.genomeDiscoveries[genome.id] = [0];\n        track(`genome_unlocked_${genome.id}`);"""
+          if old not in text:
+              raise SystemExit('refreshUnlocks patch anchor not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+          git diff --check
+          git diff --exit-code && { echo 'Expected a patch but file did not change'; exit 1; } || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mutants-merge/src/game.ts
+          git commit -m "fix(mutants): do not count locked genome starter forms"
+          git push origin HEAD:feature/mutants-playable-v0
