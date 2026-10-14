@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 
-const HOST = 'http://127.0.0.1:9222';
+const HOST = process.env.CDP_HOST || 'http://127.0.0.1:9222';
 const SAVE_KEY = 'yg-lab:mutants:v1';
 const TELEMETRY_KEY = 'yg-lab:mutants:telemetry:v1';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForJson(url, attempts = 30) {
+async function waitForJson(url, attempts = 50) {
   let lastError;
   for (let i = 0; i < attempts; i += 1) {
     try {
@@ -94,11 +94,9 @@ await waitForCanvas();
 await sleep(400);
 await screenshot('mutants-smoke-start.png');
 
-// Exercise a rewarded action. mockAds=1 guarantees the local-development fallback resolves as rewarded.
 await clickGame(395, 236);
 await sleep(550);
 
-// Drop deterministic pairs into four lanes. Repeated same-lane drops should force several tier-1 merges.
 const lanes = [135, 225, 315, 405];
 for (let i = 0; i < 24; i += 1) {
   await clickGame(lanes[Math.floor(i / 2) % lanes.length], 360);
@@ -118,16 +116,12 @@ if (!Array.isArray(saveBeforeReload?.discovered) || saveBeforeReload.discovered.
 
 await screenshot('mutants-smoke-play.png');
 
-// Open collection and verify overlay copy is present.
 await clickGame(450, 205);
 await sleep(300);
-const collectionVisible = await evaluate(`document.body.innerText.includes(${JSON.stringify('Collection')})`);
-// Phaser canvas text is not DOM text, so collectionVisible can be false; screenshot is the visual assertion.
 await screenshot('mutants-smoke-collection.png');
 await clickGame(270, 893);
 await sleep(250);
 
-// Reload and prove local save continuity.
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
 await sleep(450);
@@ -145,7 +139,6 @@ const report = {
   discovered: saveAfterReload.discovered?.length ?? 0,
   coins: saveAfterReload.coins ?? 0,
   collectionScreenshotTaken: true,
-  collectionDomTextVisible: collectionVisible,
   reloadPersistence: true
 };
 fs.writeFileSync('mutants-smoke-report.json', JSON.stringify(report, null, 2));
