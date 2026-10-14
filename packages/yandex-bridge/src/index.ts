@@ -14,7 +14,6 @@ class YandexBridge {
 
   init(): Promise<void> {
     if (this.initPromise) return this.initPromise;
-
     this.initPromise = (async () => {
       const YaGames = (globalThis as any).YaGames;
       if (!YaGames?.init) return;
@@ -24,7 +23,6 @@ class YandexBridge {
         console.warn('[YandexBridge] SDK init failed; local fallback stays active.', error);
       }
     })();
-
     return this.initPromise;
   }
 
@@ -67,7 +65,7 @@ class YandexBridge {
 
   private mockAdsEnabled(): boolean {
     try {
-      return !this.sdk && new URLSearchParams(globalThis.location?.search ?? '').get('mockAds') === '1';
+      return new URLSearchParams(globalThis.location?.search ?? '').get('mockAds') === '1';
     } catch {
       return false;
     }
@@ -80,12 +78,19 @@ class YandexBridge {
         return;
       }
       if (!this.sdk?.adv?.showFullscreenAdv) return resolve();
-      this.sdk.adv.showFullscreenAdv({
-        callbacks: {
-          onClose: () => resolve(),
-          onError: () => resolve()
-        }
-      });
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        globalThis.clearTimeout(timeoutId);
+        resolve();
+      };
+      const timeoutId = globalThis.setTimeout(finish, 12000);
+      try {
+        this.sdk.adv.showFullscreenAdv({ callbacks: { onClose: finish, onError: finish } });
+      } catch {
+        finish();
+      }
     });
   }
 
@@ -98,23 +103,25 @@ class YandexBridge {
       }, 350);
       return;
     }
-
     if (!this.sdk?.adv?.showRewardedVideo) {
       callbacks.onError?.(new Error('Yandex SDK unavailable'));
       return;
     }
-
-    this.sdk.adv.showRewardedVideo({
-      callbacks: {
-        onOpen: callbacks.onOpen,
-        onRewarded: callbacks.onRewarded,
-        onClose: callbacks.onClose,
-        onError: callbacks.onError
-      }
-    });
+    try {
+      this.sdk.adv.showRewardedVideo({
+        callbacks: {
+          onOpen: callbacks.onOpen,
+          onRewarded: callbacks.onRewarded,
+          onClose: callbacks.onClose,
+          onError: callbacks.onError
+        }
+      });
+    } catch (error) {
+      callbacks.onError?.(error);
+    }
   }
 
-  showRewardedAndWait(): Promise<boolean> {
+  showRewardedAndWait(timeoutMs = 12000): Promise<boolean> {
     return new Promise((resolve) => {
       if (this.mockAdsEnabled()) {
         globalThis.setTimeout(() => resolve(true), 350);
@@ -126,16 +133,21 @@ class YandexBridge {
       const finish = (value: boolean) => {
         if (settled) return;
         settled = true;
+        globalThis.clearTimeout(timeoutId);
         resolve(value);
       };
-
-      this.sdk.adv.showRewardedVideo({
-        callbacks: {
-          onRewarded: () => { rewarded = true; },
-          onClose: () => finish(rewarded),
-          onError: () => finish(false)
-        }
-      });
+      const timeoutId = globalThis.setTimeout(() => finish(false), Math.max(1000, timeoutMs));
+      try {
+        this.sdk.adv.showRewardedVideo({
+          callbacks: {
+            onRewarded: () => { rewarded = true; },
+            onClose: () => finish(rewarded),
+            onError: () => finish(false)
+          }
+        });
+      } catch {
+        finish(false);
+      }
     });
   }
 }
