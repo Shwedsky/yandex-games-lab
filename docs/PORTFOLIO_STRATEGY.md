@@ -1,45 +1,28 @@
-# Portfolio strategy
+# Yandex Games Lab — Portfolio Strategy
 
-## Game A — Mutants: Unlock the Final Form
-Purpose: validate distribution, retention and ad monetization cheaply.
+## Operating model
+Build small market probes, publish when platform onboarding is available, measure quickly, scale winners and stop weak concepts early.
 
-Core loop:
-1. Drop a creature/cell into the chamber.
-2. Two identical forms merge into the next form.
-3. Discover new forms and fill the collection.
-4. Lose when the chamber overflows.
-5. Use earned currency to unlock cosmetic laboratory progression.
+## Game 1 — Mutants: Genome Merge
+Status: **functionally accepted / publication blocked externally**.
 
-MVP monetization moments:
-- Rewarded: remove one object.
-- Rewarded: upgrade the next drop by one tier.
-- Rewarded: revive once after overflow.
-- Rewarded: double end-of-run coins.
-- Interstitial: only at logical run boundaries and under platform frequency control.
+The final-v4 gameplay package and submission kit are accepted. Do not redesign because RYА/Yandex Games onboarding is currently unavailable to the owner. When the blocker clears, resume at Yandex Console draft + SDK debug and fix only concrete platform/moderation findings.
 
-Kill/scale decision:
-- Do not judge on installs alone.
-- Prefer session depth, meaningful return behavior, rating and rewarded opt-in.
-- If platform recommendation traffic expands, improve content and presentation.
-- If it stalls after enough data, freeze maintenance and move on.
+## Game 2 — Reseller: Garage to Empire
+Status: **active V2 human balance pass**.
 
-## Game B — Reseller: Garage to Empire
-Purpose: create a deeper session economy with stronger monetization surface.
+Core trading loop is real and browser-tested: market -> negotiate -> explicit purchase -> prep -> list -> buyer -> counter/accept -> profit -> business upgrade -> next day.
 
-Core loop:
-1. Find/buy an underpriced item.
-2. Inspect clues about its condition and likely value.
-3. Repair/clean/list it.
-4. Receive generated buyers and offers.
-5. Negotiate or accept.
-6. Reinvest profit into better categories, tools and locations.
+V2 specifically addresses first human-test findings:
+- bargaining never auto-buys an item;
+- preparation is one-time and shown as 0/1 -> 1/1;
+- business progression is manual and visible;
+- Garage -> Kiosk requires 14 reputation + 12,000 virtual RUB;
+- Kiosk -> Shop requires 45 reputation + 60,000 virtual RUB;
+- early market values/profit are reduced;
+- stage upgrades unlock larger inventory, tighter estimates and more expensive categories;
+- daily hot/cold demand trends create day-to-day variation;
+- a fresh v2 save isolates the rebalance from the previous inflated test economy.
 
-MVP monetization moments:
-- Rewarded: reveal a better valuation hint.
-- Rewarded: refresh buyers.
-- Rewarded: instant repair/clean.
-- Rewarded: boost one sale outcome within a bounded range.
-- Interstitial: after completed business cycles, never during negotiation.
-
-## Sequencing
-A is built and submitted first. B design/content work may proceed in parallel, but production intensity increases only after A provides channel data.
+## Shared release rule
+Both games remain Draft / local-package ready until Yandex Games Console and required RYА onboarding are available again. Product development and submission preparation can continue meanwhile.
