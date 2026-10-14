@@ -1,14 +1,20 @@
-# Yandex Games release checklist
+# Yandex Release Checklist
 
-- [ ] SDK initializes without blocking local development fallback.
-- [ ] `LoadingAPI.ready()` is called only when the game is actually interactive.
-- [ ] Game survives refresh and restores meaningful progress.
-- [ ] RU and EN copy verified on mobile viewport.
-- [ ] No gameplay input leaks through ad overlays.
-- [ ] Reward is granted only after rewarded callback.
-- [ ] Interstitial appears only at a natural break.
-- [ ] Audio/gameplay pause and resume around ads verified before release.
-- [ ] No real-money gambling or real-world reward framing.
-- [ ] Production build has `index.html` at ZIP root.
-- [ ] Uncompressed build remains within Yandex Games package limits.
-- [ ] First-session funnel and core economy events are measurable before promotion.
+## External publication blocker
+As of the latest owner check, required RYА/Yandex Games onboarding is unavailable and no alternative Console route is offered. Do not rebuild accepted games because of this blocker. Keep release artifacts ready and resume at Yandex Console / SDK debug when onboarding returns.
+
+## Per-game release gate
+- production build succeeds
+- `index.html` at archive root
+- Yandex SDK lifecycle wired
+- RU/EN metadata prepared
+- rewarded/interstitial regressions pass
+- human gameplay/balance pass accepted
+- icon/cover/screenshots prepared
+- Yandex Console draft created when onboarding is available
+- debug panel clean
+- moderation findings fixed before publish
+
+## Current portfolio
+- Mutants: accepted final-v4; waiting on external onboarding
+- Reseller: V2 balance/UX pass active; submission preparation follows acceptance
