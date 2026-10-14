@@ -32,18 +32,21 @@ jobs:
       - name: Verify Yandex package
         run: node scripts/verify-yandex-package.mjs
 
-      - name: Browser smoke test
+      - name: Browser gameplay smoke test
         run: |
           python3 -m http.server 4173 --directory apps/mutants-merge/dist >/tmp/mutants-server.log 2>&1 &
           SERVER_PID=$!
-          trap 'kill $SERVER_PID || true' EXIT
-          sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --virtual-time-budget=2500 --dump-dom "http://127.0.0.1:4173/?mockAds=1" > mutants-dom.html
-          grep -q '<canvas' mutants-dom.html
-          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --virtual-time-budget=2500 --screenshot=mutants-smoke.png "http://127.0.0.1:4173/?mockAds=1"
-          test -s mutants-smoke.png
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --remote-debugging-port=9222 --user-data-dir=/tmp/mutants-chrome "http://127.0.0.1:4173/?mockAds=1" >/tmp/mutants-chrome.log 2>&1 &
+          CHROME_PID=$!
+          cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
+          trap cleanup EXIT
+          node scripts/browser-smoke.mjs
+          test -s mutants-smoke-start.png
+          test -s mutants-smoke-play.png
+          test -s mutants-smoke-collection.png
+          test -s mutants-smoke-report.json
 
       - name: Prepare Windows test kit
         run: |
@@ -75,7 +78,9 @@ jobs:
         with:
           name: mutants-ci-smoke
           path: |
-            mutants-smoke.png
-            mutants-dom.html
+            mutants-smoke-start.png
+            mutants-smoke-play.png
+            mutants-smoke-collection.png
+            mutants-smoke-report.json
           if-no-files-found: error
           retention-days: 7
