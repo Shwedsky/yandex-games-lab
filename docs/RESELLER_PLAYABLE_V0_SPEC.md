@@ -9,7 +9,7 @@ Working title: **Перекуп: с гаража до империи** / **Resel
 1. Start each day with a small cash balance and a fresh market feed.
 2. Inspect item cards: category, condition, seller ask, estimated resale range and risk.
 3. Buy or negotiate.
-4. Optional light refurbishment/cleanup raises sale potential at a cost.
+4. Optional one-time preparation/repair raises sale potential at a cost.
 5. List owned inventory for sale.
 6. Buyers arrive with procedural offers and personalities.
 7. Accept, counter or reject.
@@ -33,6 +33,20 @@ Working title: **Перекуп: с гаража до империи** / **Resel
 - Buyer offers are generated around resale value and buyer patience.
 - Profit/loss is explicit after each sale.
 - Bankruptcy protection: when cash is too low and inventory is empty, grant a small rescue lot instead of hard-locking the run.
+
+## Human test v1 findings / balance v2
+The first human pass exposed several problems and they are now product requirements:
+
+- Seller negotiation must **never auto-buy** an item. A successful counteroffer only updates the agreed price; purchase requires explicit confirmation.
+- Preparation is **one-time per item**. After preparation the button becomes disabled and reads `Подготовлено` / `Prepped`.
+- Opening Garage market is intentionally cheaper and narrower. Kiosk and Shop progressively unlock richer/higher-value inventory.
+- Business progression must be visible in the HUD, including remaining reputation and the concrete benefit of the next stage.
+- Stage thresholds for the test build: Kiosk at **20 reputation**, Shop at **60 reputation**.
+- Kiosk: 7 slots, tighter valuation range, richer market.
+- Shop: 10 slots, best valuation range, premium lots.
+- Seller floor and resale multipliers are tighter than v1; the first day should not explode into tens of thousands of profit from routine bargaining.
+- Prep adds a bounded improvement rather than compounding value indefinitely.
+- The game page explicitly uses a normal/default cursor; any OS-wide crosshair following the pointer outside the page is not game state.
 
 ## Skill / decision layer
 The game must not be a pure idle clicker. The player makes repeated decisions:
@@ -63,7 +77,7 @@ Interstitials are allowed only between completed in-game days, subject to Yandex
 - Reuse the existing Vite/Yandex bridge/publisher infrastructure from Mutants where appropriate.
 - Keep the gameplay implementation DOM/TypeScript-first unless Phaser materially improves the interaction.
 - Deterministic seeded market generation for browser smoke tests.
-- Browser CI must cover: buy, negotiate, inventory, list, buyer offer, sale, profit, day transition, local save, rewarded mock flow and reload.
+- Browser CI must cover: negotiate without auto-buy, explicit purchase confirmation, one-time prep, list, buyer offer, sale, day transition, local save, rewarded mock flow and reload.
 
 ## Delivery gates
 1. Vertical slice: one complete buy -> sell -> next-day loop.
