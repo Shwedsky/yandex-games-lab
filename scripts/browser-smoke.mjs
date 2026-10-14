@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 
 const HOST = process.env.CDP_HOST || 'http://127.0.0.1:9222';
-const SAVE_KEY = 'yg-lab:mutants:v1';
+const SAVE_KEY = 'yg-lab:mutants:v2';
 const TELEMETRY_KEY = 'yg-lab:mutants:telemetry:v1';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -63,6 +63,14 @@ async function waitForCanvas() {
   throw new Error('Phaser canvas did not appear');
 }
 
+async function waitForTestHook() {
+  for (let i = 0; i < 60; i += 1) {
+    if (await evaluate(`Boolean(globalThis.__MUTANTS_TEST__)`)) return;
+    await sleep(100);
+  }
+  throw new Error('Local Mutants test hook did not appear');
+}
+
 async function clickGame(x, y) {
   const point = await evaluate(`(() => {
     const canvas = document.querySelector('canvas');
@@ -82,6 +90,10 @@ async function getTelemetry() {
 
 async function getSave() {
   return await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
+}
+
+async function getTestState() {
+  return await evaluate(`globalThis.__MUTANTS_TEST__?.state?.() ?? null`);
 }
 
 async function acceptedDrop(x) {
@@ -104,12 +116,15 @@ async function screenshot(path) {
 await send('Page.enable');
 await send('Runtime.enable');
 await waitForCanvas();
+await waitForTestHook();
 await sleep(500);
 await screenshot('mutants-smoke-start.png');
 
-// Rewarded upgrade must always use mock flow when ?mockAds=1, even if the SDK object exists locally.
+// In local test mode a rewarded action must visibly wait instead of resolving instantly.
 await clickGame(395, 246);
-await sleep(650);
+await sleep(300);
+await screenshot('mutants-smoke-mock-ad.png');
+await sleep(1450);
 
 for (let i = 0; i < 8; i += 1) await acceptedDrop(270);
 await sleep(1100);
@@ -122,7 +137,8 @@ if ((telemetry?.drop ?? 0) < 8) throw new Error(`Expected 8 accepted drops, got 
 if ((telemetry?.merge_tier_1 ?? 0) < 1) throw new Error('Expected at least one tier-1 merge');
 if ((telemetry?.reward_upgrade_next_rewarded ?? 0) < 1) throw new Error('Mock rewarded upgrade did not complete');
 if (!Array.isArray(biomassDiscoveries) || biomassDiscoveries.length < 2) throw new Error('Expected at least two Biomass forms after gameplay');
-if ((saveAfterPlay?.dna ?? 0) <= 0 || (saveAfterPlay?.researchDna ?? 0) <= 0) throw new Error('DNA progression did not advance');
+if ((saveAfterPlay?.dna ?? 0) <= 0 || (saveAfterPlay?.researchDna ?? 0) <= 0) throw new Error('DNA discovery progression did not advance');
+if ((saveAfterPlay?.researchDna ?? 0) > 500) throw new Error('Early-run DNA progression is still much too fast');
 
 await screenshot('mutants-smoke-play.png');
 
@@ -133,18 +149,21 @@ await screenshot('mutants-smoke-collection.png');
 await clickGame(270, 912);
 await sleep(350);
 
-// Seed a deterministic shop balance in the isolated CI profile, then verify spendable DNA and lifetime research diverge correctly.
+// Seed deterministic test-only balance: enough for Neon, but below Parasite unlock.
 await evaluate(`(() => {
   const key = ${JSON.stringify(SAVE_KEY)};
   const save = JSON.parse(localStorage.getItem(key) || '{}');
-  save.dna = 1500;
-  save.researchDna = 1500;
-  save.unlockedGenomes = Array.from(new Set([...(save.unlockedGenomes || []), 'biomass', 'predator']));
+  save.dna = 4500;
+  save.researchDna = 4500;
+  save.unlockedGenomes = ['biomass', 'predator'];
+  save.ownedBackgrounds = ['void'];
+  save.selectedBackground = 'void';
   localStorage.setItem(key, JSON.stringify(save));
   return true;
 })()`);
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
+await waitForTestHook();
 await sleep(550);
 
 await clickGame(477, 203);
@@ -156,15 +175,47 @@ await screenshot('mutants-smoke-shop.png');
 const saveAfterShop = await getSave();
 if (saveAfterShop?.selectedBackground !== 'neon') throw new Error('Neon background was not equipped after purchase');
 if (!(saveAfterShop?.ownedBackgrounds ?? []).includes('neon')) throw new Error('Purchased background was not persisted as owned');
-if ((saveAfterShop?.dna ?? -1) !== 500) throw new Error(`Expected 500 spendable DNA after 1000-DNA purchase, got ${saveAfterShop?.dna}`);
-if ((saveAfterShop?.researchDna ?? -1) !== 1500) throw new Error('Lifetime research DNA changed when cosmetic DNA was spent');
+if ((saveAfterShop?.dna ?? -1) !== 1500) throw new Error(`Expected 1500 spendable DNA after 3000-DNA purchase, got ${saveAfterShop?.dna}`);
+if ((saveAfterShop?.researchDna ?? -1) !== 4500) throw new Error('Lifetime research DNA changed when cosmetic DNA was spent');
 if (!(saveAfterShop?.unlockedGenomes ?? []).includes('predator')) throw new Error('Predator genome unlock did not persist');
+if ((saveAfterShop?.unlockedGenomes ?? []).includes('parasite')) throw new Error('Parasite genome unlocked too early below 5000 research DNA');
 
 await clickGame(270, 880);
 await sleep(350);
+
+// Explicitly regression-test the two game-over rewarded buttons that failed in human testing.
+await evaluate(`globalThis.__MUTANTS_TEST__.forceGameOver()`);
+await sleep(250);
+await screenshot('mutants-smoke-gameover.png');
+await clickGame(270, 515); // revive
+await sleep(300);
+await screenshot('mutants-smoke-revive-ad.png');
+await sleep(1450);
+let state = await getTestState();
+let telemetryAfterRevive = await getTelemetry();
+if (!state || state.ended || state.rewardBusy || !state.revivedThisRun) throw new Error(`Revive did not return to gameplay cleanly: ${JSON.stringify(state)}`);
+if ((telemetryAfterRevive?.reward_revive_rewarded ?? 0) < 1) throw new Error('Revive rewarded flow did not complete');
+
+await evaluate(`globalThis.__MUTANTS_TEST__.forceGameOver()`);
+await sleep(250);
+const dnaBeforeDouble = (await getSave())?.dna ?? 0;
+await clickGame(270, 515); // after revive has been used, x2 occupies the first rewarded slot
+await sleep(300);
+await screenshot('mutants-smoke-double-ad.png');
+await sleep(1800);
+await waitForCanvas();
+await waitForTestHook();
+state = await getTestState();
+const telemetryAfterDouble = await getTelemetry();
+const saveAfterDouble = await getSave();
+if (!state || state.ended || state.rewardBusy) throw new Error(`DNA x2 left the game blocked: ${JSON.stringify(state)}`);
+if ((telemetryAfterDouble?.reward_double_dna_rewarded ?? 0) < 1) throw new Error('DNA x2 rewarded flow did not complete');
+if ((saveAfterDouble?.dna ?? 0) <= dnaBeforeDouble) throw new Error('DNA x2 did not increase the wallet');
+
 const saveAtReloadBoundary = await getSave();
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
+await waitForTestHook();
 await sleep(550);
 const saveAfterReload = await getSave();
 
@@ -181,13 +232,18 @@ const report = {
   tier1Merges: telemetry.merge_tier_1 ?? 0,
   tier2Merges: telemetry.merge_tier_2 ?? 0,
   rewardedUpgrade: telemetry.reward_upgrade_next_rewarded ?? 0,
+  rewardedRevive: telemetryAfterRevive.reward_revive_rewarded ?? 0,
+  rewardedDoubleDna: telemetryAfterDouble.reward_double_dna_rewarded ?? 0,
   biomassDiscovered: biomassDiscoveries.length,
-  dnaAfterCosmeticPurchase: saveAfterReload.dna ?? 0,
+  earlyResearchDna: saveAfterPlay.researchDna ?? 0,
+  dnaAfterCosmeticPurchase: saveAfterShop.dna ?? 0,
   researchDna: saveAfterReload.researchDna ?? 0,
   unlockedGenomes: saveAfterReload.unlockedGenomes ?? [],
   selectedBackground: saveAfterReload.selectedBackground,
+  mockAdScreenshotTaken: true,
   collectionScreenshotTaken: true,
   shopScreenshotTaken: true,
+  gameOverRewardedRegression: true,
   reloadPersistence: true
 };
 fs.writeFileSync('mutants-smoke-report.json', JSON.stringify(report, null, 2));
