@@ -4,8 +4,8 @@ import { yandexBridge } from '@yg-lab/yandex-bridge';
 
 const WIDTH = 540;
 const HEIGHT = 960;
-const CHAMBER = { left: 38, right: 502, top: 236, bottom: 914 };
-const OVERFLOW_Y = 286;
+const CHAMBER = { left: 38, right: 502, top: 274, bottom: 914 };
+const OVERFLOW_Y = 322;
 const MAX_TIER = 10;
 const SAVE_KEY = 'yg-lab:mutants:v1';
 
@@ -20,11 +20,13 @@ const t = locale === 'ru'
   ? {
       title: 'МУТАНТЫ', hint: 'Нажми, чтобы сбросить форму', score: 'Счёт', best: 'Рекорд',
       collection: 'Открыто', gameOver: 'Камера переполнена', restart: 'Ещё раз',
+      remove: 'Убрать верхний', upgrade: 'Улучшить след.', adUnavailable: 'Реклама пока недоступна',
       final: 'Финальная форма открыта!', newForm: 'Новая форма!'
     }
   : {
       title: 'MUTANTS', hint: 'Tap to drop a lifeform', score: 'Score', best: 'Best',
       collection: 'Found', gameOver: 'Chamber overflow', restart: 'Play again',
+      remove: 'Remove top', upgrade: 'Upgrade next', adUnavailable: 'Ad unavailable',
       final: 'Final form unlocked!', newForm: 'New form!'
     };
 
@@ -48,6 +50,8 @@ class MergeScene extends Phaser.Scene {
   private ended = false;
   private overflowSince: number | null = null;
   private mergingBodies = new Set<number>();
+  private rewardBusy = false;
+  private collisionHandler?: (event: any) => void;
 
   async create() {
     this.cameras.main.setBackgroundColor('#0b1019');
@@ -66,8 +70,12 @@ class MergeScene extends Phaser.Scene {
       this.time.delayedCall(260, () => { this.canDrop = true; });
     });
 
-    this.matter.world.on('collisionstart', (event: any) => {
+    this.collisionHandler = (event: any) => {
       for (const pair of event.pairs ?? []) this.tryMergePair(pair.bodyA, pair.bodyB);
+    };
+    this.matter.world.on('collisionstart', this.collisionHandler);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (this.collisionHandler) this.matter.world.off('collisionstart', this.collisionHandler);
     });
 
     await yandexBridge.init();
@@ -121,7 +129,59 @@ class MergeScene extends Phaser.Scene {
     this.collectionText = this.add.text(WIDTH - 28, 183, '', { fontFamily: 'Arial', fontSize: '19px', color: '#9db0c9' }).setOrigin(1, 0);
     this.add.text(WIDTH - 100, 145, locale === 'ru' ? 'След.' : 'Next', { fontFamily: 'Arial', fontSize: '17px', color: '#9db0c9' });
     this.nextPreview = this.add.circle(WIDTH - 54, 158, 19, COLORS[0]).setStrokeStyle(2, 0xffffff, 0.65);
+
+    const removeButton = this.createActionButton(145, 230, t.remove);
+    removeButton.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      void this.rewardRemoveTop();
+    });
+
+    const upgradeButton = this.createActionButton(395, 230, t.upgrade);
+    upgradeButton.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      void this.rewardUpgradeNext();
+    });
+
     this.refreshHud();
+  }
+
+  private createActionButton(x: number, y: number, label: string) {
+    return this.add.text(x, y, `▶ ${label}`, {
+      fontFamily: 'Arial', fontSize: '17px', color: '#ffffff',
+      backgroundColor: '#25344b', padding: { x: 12, y: 9 }
+    }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true });
+  }
+
+  private async withRewardedAd(reward: () => void) {
+    if (this.rewardBusy || this.ended) return;
+    this.rewardBusy = true;
+    this.canDrop = false;
+    this.matter.world.pause();
+
+    const granted = await yandexBridge.showRewardedAndWait();
+    if (granted) reward();
+    else this.toast(t.adUnavailable);
+
+    if (!this.ended) this.matter.world.resume();
+    this.canDrop = true;
+    this.rewardBusy = false;
+  }
+
+  private async rewardRemoveTop() {
+    const target = this.getLiveMutants().sort((a, b) => a.y - b.y)[0];
+    if (!target) return;
+    await this.withRewardedAd(() => {
+      this.removeMutant(target);
+      this.overflowSince = null;
+    });
+  }
+
+  private async rewardUpgradeNext() {
+    if (this.nextTier >= 2) return;
+    await this.withRewardedAd(() => {
+      this.nextTier = Math.min(2, this.nextTier + 1);
+      this.updateNextPreview();
+    });
   }
 
   private dropMutant(x: number, tier: number) {
@@ -281,6 +341,7 @@ class MergeScene extends Phaser.Scene {
     const restart = async () => {
       button.disableInteractive();
       await yandexBridge.showInterstitial();
+      this.matter.world.resume();
       this.scene.restart();
     };
 
