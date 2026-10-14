@@ -75,6 +75,7 @@ class MergeScene extends Phaser.Scene {
   }
 
   update(time: number) {
+    this.syncLabels();
     if (this.ended) return;
 
     const highBody = this.getLiveMutants().some((go) => {
@@ -152,13 +153,16 @@ class MergeScene extends Phaser.Scene {
     label.setData('owner', circle);
 
     circle.setData('label', label);
-    this.events.on('update', () => {
-      if (!circle.active || !label.active) return;
-      label.setPosition(circle.x, circle.y);
-      label.setRotation(circle.rotation);
-    });
-
     return circle;
+  }
+
+  private syncLabels() {
+    for (const mutant of this.getLiveMutants()) {
+      const label = mutant.getData('label') as Phaser.GameObjects.Text | undefined;
+      if (!label?.active) continue;
+      label.setPosition(mutant.x, mutant.y);
+      label.setRotation(mutant.rotation);
+    }
   }
 
   private tryMergePair(bodyA: any, bodyB: any) {
@@ -257,6 +261,7 @@ class MergeScene extends Phaser.Scene {
   private endRun() {
     if (this.ended) return;
     this.ended = true;
+    this.matter.world.pause();
     this.save.bestScore = Math.max(this.save.bestScore, this.score);
     this.save.coins += Math.floor(this.score / 250);
     this.persist();
