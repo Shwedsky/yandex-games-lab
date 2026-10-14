@@ -78,7 +78,6 @@ if (!Array.isArray(s.market) || s.market.length !== 5) throw new Error('Fresh ma
 const first = s.market[0];
 if (!(first.ask < first.fairValue * 0.85)) throw new Error('First market slot should guarantee a plausible underpriced deal');
 
-// Rewarded price reveal must visibly wait in mock mode and then reveal exact value.
 await clickSelector(`[data-action="reveal"][data-id="${first.id}"]`);
 await sleep(300);
 const adVisible = await evaluate(`Boolean(document.querySelector('.ad-overlay'))`);
@@ -88,7 +87,6 @@ await sleep(1450);
 s = await state();
 if (!s.market.find((x) => x.id === first.id)?.revealed) throw new Error('Rewarded exact-value reveal did not apply');
 
-// Buy -> inventory -> prepare -> list -> buyer offer -> sale.
 await evaluate(`globalThis.__RESELLER_TEST__.buy(${JSON.stringify(first.id)})`);
 await sleep(180);
 s = await state();
@@ -113,7 +111,6 @@ if (s.inventory.length !== 0 || s.deals !== 1) throw new Error('Sale did not clo
 if (!(s.cash > cashBeforeSale)) throw new Error('Sale did not add proceeds to cash');
 if (!(s.reputation > 0)) throw new Error('Sale did not award reputation');
 
-// Day transition + fresh market.
 const dayBefore = s.day;
 await evaluate(`globalThis.__RESELLER_TEST__.endDay()`);
 await sleep(1650);
@@ -121,6 +118,10 @@ s = await state();
 if (s.day !== dayBefore + 1) throw new Error('End day did not advance the day');
 if (!Array.isArray(s.market) || s.market.length !== 5) throw new Error('New day did not refresh market');
 await screenshot('reseller-smoke-next-day.png');
+
+const events = await telemetry();
+if ((events.reveal_value_rewarded ?? 0) < 1) throw new Error('Rewarded telemetry missing');
+if ((events.buy ?? 0) < 1 || (events.sale ?? 0) < 1 || (events.day_end ?? 0) < 1) throw new Error('Core loop telemetry missing');
 
 const beforeReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
 await send('Page.reload', { ignoreCache: true });
@@ -130,10 +131,6 @@ const afterReload = await state();
 if (afterReload.cash !== beforeReload.cash || afterReload.day !== beforeReload.day || afterReload.deals !== beforeReload.deals) {
   throw new Error('Core reseller progression did not persist across reload');
 }
-
-const events = await telemetry();
-if ((events.reveal_value_rewarded ?? 0) < 1) throw new Error('Rewarded telemetry missing');
-if ((events.buy ?? 0) < 1 || (events.sale ?? 0) < 1 || (events.day_end ?? 0) < 1) throw new Error('Core loop telemetry missing');
 
 const report = {
   cash: afterReload.cash,
