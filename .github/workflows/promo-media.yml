@@ -5,6 +5,7 @@ on:
     branches:
       - feature/mutants-playable-v0
     paths:
+      - apps/mutants-merge/src/**
       - scripts/capture-promo.mjs
       - .github/workflows/promo-media.yml
 
