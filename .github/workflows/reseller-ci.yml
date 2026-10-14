@@ -1,0 +1,98 @@
+name: Reseller CI
+
+on:
+  push:
+    branches:
+      - feature/reseller-playable-v1
+  pull_request:
+    branches:
+      - feature/reseller-playable-v0
+
+jobs:
+  reseller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build Reseller
+        run: npm run build:reseller
+      - name: Browser trading-loop smoke
+        run: |
+          python3 -m http.server 4174 --directory apps/reseller-empire/dist >/tmp/reseller-server.log 2>&1 &
+          SERVER_PID=$!
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          PROFILE=/tmp/reseller-chrome
+          rm -rf "$PROFILE"
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=1280,900 --remote-debugging-port=0 --user-data-dir="$PROFILE" "http://127.0.0.1:4174/?mockAds=1&ciTest=1" >/tmp/reseller-chrome.log 2>&1 &
+          CHROME_PID=$!
+          cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 60); do
+            if test -s "$PROFILE/DevToolsActivePort"; then break; fi
+            sleep 0.2
+          done
+          test -s "$PROFILE/DevToolsActivePort"
+          CDP_PORT=$(head -n1 "$PROFILE/DevToolsActivePort")
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/reseller-smoke.mjs | tee reseller-smoke.log
+      - name: Prepare Reseller test kit
+        run: |
+          rm -rf reseller-test-kit
+          mkdir -p reseller-test-kit
+          cp -R apps/reseller-empire/dist/. reseller-test-kit/
+          cat > reseller-test-kit/START_TEST.ps1 <<'PS1'
+          $ErrorActionPreference = 'Stop'
+          $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $launcher = Get-Command py -ErrorAction SilentlyContinue
+          if (-not $launcher) { $launcher = Get-Command python -ErrorAction SilentlyContinue }
+          if (-not $launcher) { Write-Host 'Python was not found.' -ForegroundColor Red; Read-Host 'Enter'; exit 1 }
+          $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+          $listener.Start(); $port = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port; $listener.Stop()
+          $server = Start-Process -FilePath $launcher.Source -ArgumentList @('-m','http.server',"$port",'--bind','0.0.0.0') -WorkingDirectory $root -PassThru -WindowStyle Hidden
+          try {
+            Start-Sleep -Milliseconds 700
+            $url = "http://127.0.0.1:$port/?mockAds=1&build=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+            Start-Process $url
+            Write-Host "RESELLER TEST SERVER: $url" -ForegroundColor Green
+            Read-Host 'Press Enter when done'
+          } finally { if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue } }
+          PS1
+          cat > reseller-test-kit/START_TEST.cmd <<'CMD'
+          @echo off
+          powershell -ExecutionPolicy Bypass -File "%~dp0START_TEST.ps1"
+          CMD
+          cat > reseller-test-kit/README_TEST.txt <<'TXT'
+          RESELLER PLAYABLE V1
+          1. Double-click START_TEST.cmd.
+          2. Browser opens with mock rewarded ads enabled.
+          3. Play several buy -> prep -> list -> sell loops.
+          4. Close the server by returning to the terminal and pressing Enter.
+          TXT
+      - name: Upload Reseller web package
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-yandex-package
+          path: apps/reseller-empire/dist/
+          retention-days: 7
+      - name: Upload Reseller test kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-test-kit
+          path: reseller-test-kit/
+          retention-days: 7
+      - name: Upload Reseller smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-ci-smoke
+          path: |
+            reseller-smoke*.png
+            reseller-smoke*.json
+            reseller-smoke.log
+          if-no-files-found: warn
+          retention-days: 7
