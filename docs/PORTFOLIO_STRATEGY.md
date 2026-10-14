@@ -9,7 +9,7 @@ Status: **functionally accepted / publication blocked externally**.
 The final-v4 gameplay package and submission kit are accepted. Do not redesign because RYА/Yandex Games onboarding is currently unavailable to the owner. When the blocker clears, resume at Yandex Console draft + SDK debug and fix only concrete platform/moderation findings.
 
 ## Game 2 — Reseller: Garage to Empire
-Status: **active V2 human balance pass**.
+Status: **V2 implemented / automated gate green / human balance pass next**.
 
 Core trading loop is real and browser-tested: market -> negotiate -> explicit purchase -> prep -> list -> buyer -> counter/accept -> profit -> business upgrade -> next day.
 
@@ -22,7 +22,10 @@ V2 specifically addresses first human-test findings:
 - early market values/profit are reduced;
 - stage upgrades unlock larger inventory, tighter estimates and more expensive categories;
 - daily hot/cold demand trends create day-to-day variation;
-- a fresh v2 save isolates the rebalance from the previous inflated test economy.
+- a fresh v2 save isolates the rebalance from the previous inflated test economy;
+- the app explicitly uses the normal system cursor and does not request pointer lock.
+
+Browser CI confirms negotiation without auto-buy, prep 1/1, sale, rewarded refresh, Garage -> Kiosk upgrade, day transition and persistence.
 
 ## Shared release rule
 Both games remain Draft / local-package ready until Yandex Games Console and required RYА onboarding are available again. Product development and submission preparation can continue meanwhile.
