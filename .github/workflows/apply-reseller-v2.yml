@@ -1,0 +1,31 @@
+name: Apply Reseller v2 patch
+
+on:
+  push:
+    branches:
+      - feature/reseller-playable-v1
+    paths:
+      - scripts/apply-reseller-v2.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/reseller-playable-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply patch
+        run: node scripts/apply-reseller-v2.mjs
+      - name: Commit production changes
+        run: |
+          git config user.name "Shwedsky"
+          git config user.email "118769760+Shwedsky@users.noreply.github.com"
+          git add apps/reseller-empire/src/main.ts apps/reseller-empire/src/styles.css scripts/reseller-smoke.mjs
+          git commit -m "feat(reseller): rebalance early game and clarify progression"
+          git push origin HEAD:feature/reseller-playable-v1
