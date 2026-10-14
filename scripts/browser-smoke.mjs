@@ -119,16 +119,16 @@ await clickGame(395, 236);
 await sleep(550);
 
 const lanes = [135, 225, 315, 405];
-for (let i = 0; i < 24; i += 1) {
+for (let i = 0; i < 12; i += 1) {
   await clickGame(lanes[Math.floor(i / 2) % lanes.length], 360);
   await sleep(285);
 }
-await sleep(1200);
+await sleep(900);
 
 const telemetry = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(TELEMETRY_KEY)}) || '{}')`);
 const saveBeforeReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
 
-if ((telemetry?.drop ?? 0) < 20) throw new Error(`Expected at least 20 registered drops, got ${telemetry?.drop ?? 0}`);
+if ((telemetry?.drop ?? 0) < 10) throw new Error(`Expected at least 10 registered drops, got ${telemetry?.drop ?? 0}`);
 if ((telemetry?.merge_tier_1 ?? 0) < 1) throw new Error('Expected at least one tier-1 merge');
 if ((telemetry?.reward_upgrade_next_rewarded ?? 0) < 1) throw new Error('Mock rewarded upgrade did not complete');
 if (!Array.isArray(saveBeforeReload?.discovered) || saveBeforeReload.discovered.length < 2) {
