@@ -140,6 +140,27 @@ if (!Array.isArray(biomassDiscoveries) || biomassDiscoveries.length < 2) throw n
 if ((saveAfterPlay?.dna ?? 0) <= 0 || (saveAfterPlay?.researchDna ?? 0) <= 0) throw new Error('DNA discovery progression did not advance');
 if ((saveAfterPlay?.researchDna ?? 0) > 500) throw new Error('Early-run DNA progression is still much too fast');
 
+// Selected-removal rewarded: select a concrete on-board mutant and verify merge-equivalent rewards.
+const beforeSelectedRemoveState = await getTestState();
+const beforeSelectedRemoveSave = await getSave();
+const target = beforeSelectedRemoveState?.mutants?.[0];
+if (!target) throw new Error('No live mutant available for selected-removal regression');
+await clickGame(145, 246);
+await sleep(180);
+const selectingState = await getTestState();
+if (!selectingState?.selectingRemoval) throw new Error('Remove selected did not enter selection mode');
+await clickGame(target.x, target.y);
+await sleep(300);
+await screenshot('mutants-smoke-remove-selected-ad.png');
+await sleep(1450);
+const afterSelectedRemoveState = await getTestState();
+const afterSelectedRemoveSave = await getSave();
+const telemetryAfterSelectedRemove = await getTelemetry();
+if (afterSelectedRemoveState?.selectingRemoval || afterSelectedRemoveState?.rewardBusy) throw new Error('Selected-removal flow remained blocked');
+if ((telemetryAfterSelectedRemove?.reward_remove_selected_rewarded ?? 0) < 1) throw new Error('Selected-removal rewarded flow did not complete');
+if ((afterSelectedRemoveState?.score ?? 0) <= (beforeSelectedRemoveState?.score ?? 0)) throw new Error('Selected removal did not award merge-equivalent score');
+if ((afterSelectedRemoveSave?.dna ?? 0) <= (beforeSelectedRemoveSave?.dna ?? 0)) throw new Error('Selected removal did not award DNA');
+
 await screenshot('mutants-smoke-play.png');
 
 // Genome lab / 66-form collection.
@@ -232,6 +253,7 @@ const report = {
   tier1Merges: telemetry.merge_tier_1 ?? 0,
   tier2Merges: telemetry.merge_tier_2 ?? 0,
   rewardedUpgrade: telemetry.reward_upgrade_next_rewarded ?? 0,
+  rewardedRemoveSelected: telemetryAfterSelectedRemove.reward_remove_selected_rewarded ?? 0,
   rewardedRevive: telemetryAfterRevive.reward_revive_rewarded ?? 0,
   rewardedDoubleDna: telemetryAfterDouble.reward_double_dna_rewarded ?? 0,
   biomassDiscovered: biomassDiscoveries.length,

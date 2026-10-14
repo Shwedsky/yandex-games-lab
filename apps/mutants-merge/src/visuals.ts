@@ -22,6 +22,12 @@ function drawEyes(g: Phaser.GameObjects.Graphics, count: number, radius: number,
     g.fillCircle(eyeX + radius * 0.025, eyeY + radius * 0.015, Math.max(2, radius * 0.065));
   }
 }
+function drawSmile(g: Phaser.GameObjects.Graphics, radius: number, color: number) {
+  g.lineStyle(Math.max(2, radius * 0.055), color, 0.82);
+  g.beginPath();
+  g.arc(0, radius * 0.14, radius * 0.24, Math.PI * 0.15, Math.PI * 0.85, false);
+  g.strokePath();
+}
 
 export function createGenomeCreature(
   scene: Phaser.Scene,
@@ -55,6 +61,7 @@ export function createGenomeCreature(
       }
     }
     drawEyes(g, tier >= 7 ? 3 : tier >= 3 ? 2 : 1, radius, dark);
+    drawSmile(g, radius, dark);
   } else if (genomeId === 'predator') {
     const teeth = 5 + Math.floor(complexity / 2);
     const body = polygonPoints(teeth, radius * 1.04, radius * (tier < 3 ? 0.78 : 0.62), -Math.PI / 2);
@@ -68,6 +75,7 @@ export function createGenomeCreature(
       g.fillPoints(mouth, true);
     }
     drawEyes(g, tier >= 8 ? 3 : 2, radius, dark);
+    drawSmile(g, radius, 0xffffff);
   } else if (genomeId === 'parasite') {
     const segments = 2 + Math.floor(complexity / 2);
     const span = radius * 1.22;
@@ -92,6 +100,7 @@ export function createGenomeCreature(
       }
     }
     drawEyes(g, tier >= 6 ? 2 : 1, radius, dark);
+    drawSmile(g, radius, dark);
   } else if (genomeId === 'cyber') {
     const teeth = 6 + Math.min(4, Math.floor(complexity / 2));
     const gear = polygonPoints(teeth, radius * 1.05, radius * 0.78, Math.PI / teeth);
@@ -114,6 +123,7 @@ export function createGenomeCreature(
       g.strokePath();
     }
     drawEyes(g, tier >= 7 ? 2 : 1, radius, 0x071018);
+    drawSmile(g, radius, 0x64efff);
   } else if (genomeId === 'psi') {
     const sides = tier < 3 ? 4 : tier < 7 ? 6 : 8;
     const crystal = polygonPoints(sides, radius * 0.98, radius * 0.98, Math.PI / 4);
@@ -132,6 +142,7 @@ export function createGenomeCreature(
       }
     }
     drawEyes(g, tier >= 6 ? 3 : 1, radius, 0x6f32d8);
+    drawSmile(g, radius, 0x6f32d8);
   } else {
     const arms = 5 + Math.min(5, Math.floor(complexity / 2));
     const voidShape = polygonPoints(arms, radius * 1.1, radius * (tier < 4 ? 0.54 : 0.42), -Math.PI / 2);
@@ -153,6 +164,7 @@ export function createGenomeCreature(
       }
     }
     drawEyes(g, tier >= 7 ? 4 : tier >= 3 ? 2 : 1, radius, 0xd26cff);
+    drawSmile(g, radius, 0xe9d6ff);
   }
 
   if (tier === 10) {

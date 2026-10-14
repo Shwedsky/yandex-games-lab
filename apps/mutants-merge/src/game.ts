@@ -31,7 +31,7 @@ const copy = () => locale === 'ru'
   ? {
       title: 'Мутанты: Геномный синтез', hint: 'Нажми в камере, чтобы сбросить форму', score: 'Счёт', best: 'Рекорд',
       dna: 'ДНК', research: 'Исследование', allGenomes: 'Все геномы открыты', genomes: 'Геномы',
-      shop: 'Фоны', gameOver: 'Камера переполнена', restart: 'Ещё раз', remove: 'Убрать верхний',
+      shop: 'Фоны', gameOver: 'Камера переполнена', restart: 'Ещё раз', remove: 'Убрать выбранный', removePrompt: 'Выбери форму для удаления',
       upgrade: 'Улучшить след.', adUnavailable: 'Реклама недоступна', final: 'Финальная форма открыта!',
       newForm: 'Новая форма', close: 'Закрыть', revive: 'Спасти забег', doubled: 'ДНК x2',
       runReward: 'Награда', revived: 'Камера стабилизирована!', danger: 'КРИТИЧЕСКИЙ УРОВЕНЬ',
@@ -43,7 +43,7 @@ const copy = () => locale === 'ru'
   : {
       title: 'Mutants: Genome Merge', hint: 'Tap inside the chamber to drop a lifeform', score: 'Score', best: 'Best',
       dna: 'DNA', research: 'Research', allGenomes: 'All genomes unlocked', genomes: 'Genomes',
-      shop: 'Backgrounds', gameOver: 'Chamber overflow', restart: 'Play again', remove: 'Remove top',
+      shop: 'Backgrounds', gameOver: 'Chamber overflow', restart: 'Play again', remove: 'Remove selected', removePrompt: 'Choose a lifeform to remove',
       upgrade: 'Upgrade next', adUnavailable: 'Ad unavailable', final: 'Final form unlocked!',
       newForm: 'New form', close: 'Close', revive: 'Save run', doubled: 'DNA x2', runReward: 'Reward',
       revived: 'Chamber stabilized!', danger: 'CRITICAL LEVEL', next: 'Next', genomeLab: 'Genome Lab',
@@ -154,6 +154,7 @@ class MergeScene extends Phaser.Scene {
   private overflowSince: number | null = null;
   private mergingBodies = new Set<number>();
   private rewardBusy = false;
+  private selectingRemoval = false;
   private collisionHandler?: (event: any) => void;
   private visibilityHandler?: () => void;
   private revivedThisRun = false;
@@ -188,6 +189,13 @@ class MergeScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.ended || !this.canDrop || this.hasOverlay() || this.rewardBusy) return;
+      if (this.selectingRemoval) {
+        const target = this.findMutantAt(pointer.x, pointer.y);
+        if (!target) { this.toast(copy().removePrompt); return; }
+        this.selectingRemoval = false;
+        void this.rewardRemoveSelected(target);
+        return;
+      }
       if (pointer.y < CHAMBER.top - 10) return;
       const x = Phaser.Math.Clamp(pointer.x, CHAMBER.left + 34, CHAMBER.right - 34);
       this.dropMutant(x, this.nextTier);
@@ -319,7 +327,7 @@ class MergeScene extends Phaser.Scene {
     const removeButton = this.createActionButton(145, 246, t.remove);
     removeButton.on('pointerdown', (_pointer, _x, _y, event) => {
       event.stopPropagation();
-      void this.rewardRemoveTop();
+      this.beginRemoveSelection();
     });
     const upgradeButton = this.createActionButton(395, 246, t.upgrade);
     upgradeButton.on('pointerdown', (_pointer, _x, _y, event) => {
@@ -393,15 +401,39 @@ class MergeScene extends Phaser.Scene {
     }
   }
 
-  private async rewardRemoveTop() {
-    if (this.ended) return;
-    const target = this.getLiveMutants().sort((a, b) => a.y - b.y)[0];
-    if (!target) return;
+  private beginRemoveSelection() {
+    if (this.ended || this.rewardBusy) return;
+    const mutants = this.getLiveMutants();
+    if (mutants.length === 0) return;
+    this.selectingRemoval = true;
+    this.toast(copy().removePrompt);
+    const skins = mutants.map((mutant) => mutant.getData('skin')).filter(Boolean) as Phaser.GameObjects.Graphics[];
+    if (skins.length) this.tweens.add({ targets: skins, alpha: 0.48, duration: 170, yoyo: true, repeat: 3 });
+  }
+
+  private findMutantAt(x: number, y: number) {
+    return this.getLiveMutants()
+      .map((mutant) => ({ mutant, distance: Phaser.Math.Distance.Between(x, y, mutant.x, mutant.y), radius: mutant.getData('radius') as number }))
+      .filter((candidate) => candidate.distance <= candidate.radius * 1.18)
+      .sort((a, b) => a.distance - b.distance)[0]?.mutant;
+  }
+
+  private async rewardRemoveSelected(target: Phaser.GameObjects.Arc) {
+    if (this.ended || !target.active) return;
+    const tier = target.getData('tier') as number;
+    const mergeTier = Math.min(MAX_TIER, tier + 1);
+    const scoreGain = (mergeTier + 1) * (mergeTier + 1) * 10;
+    const dnaGain = 5 + mergeTier * 4;
     await this.withRewardedAd(() => {
-      this.removeMutant(target);
+      if (target.active) this.removeMutant(target);
+      this.score += scoreGain;
+      this.grantDna(dnaGain);
       this.overflowSince = null;
       this.setDangerProgress(0);
-    }, 'reward_remove_top');
+      this.persist();
+      this.refreshHud();
+      this.toast(locale === 'ru' ? '+' + scoreGain + ' очков · +' + dnaGain + ' ДНК' : '+' + scoreGain + ' score · +' + dnaGain + ' DNA');
+    }, 'reward_remove_selected');
   }
 
   private async rewardUpgradeNext() {
@@ -593,6 +625,7 @@ class MergeScene extends Phaser.Scene {
   }
 
   private pauseForOverlay() {
+    this.selectingRemoval = false;
     this.canDrop = false;
     this.matter.world.pause();
     yandexBridge.gameplayStop();
@@ -771,6 +804,7 @@ class MergeScene extends Phaser.Scene {
 
   private endRun() {
     if (this.ended) return;
+    this.selectingRemoval = false;
     this.ended = true;
     this.canDrop = false;
     this.matter.world.pause();
@@ -856,6 +890,7 @@ class MergeScene extends Phaser.Scene {
     this.nextTier = 0;
     this.ended = false;
     this.rewardBusy = false;
+    this.selectingRemoval = false;
     this.canDrop = true;
     this.overflowSince = null;
     this.revivedThisRun = false;
@@ -912,7 +947,9 @@ class MergeScene extends Phaser.Scene {
           dna: this.save.dna,
           researchDna: this.save.researchDna,
           revivedThisRun: this.revivedThisRun,
-          score: this.score
+          score: this.score,
+          selectingRemoval: this.selectingRemoval,
+          mutants: this.getLiveMutants().map((mutant) => ({ x: mutant.x, y: mutant.y, tier: mutant.getData('tier') as number }))
         })
       };
     } catch {

@@ -31,7 +31,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0x72e06a, 0x30d5c8, 0x58a6ff, 0x8d72e1, 0xd267e3, 0xff6b9a, 0xff7a59, 0xffb347, 0xf4e04d, 0xb8ef5a, 0xffffff]
   },
   {
-    id: 'predator', unlockResearch: 1500,
+    id: 'predator', unlockResearch: 1250,
     name: { ru: 'Хищная линия', en: 'Predator Line' },
     description: { ru: 'Клыки, рога и агрессивные формы', en: 'Fangs, horns and aggressive forms' },
     forms: {
@@ -92,25 +92,25 @@ export const BACKGROUNDS: BackgroundDefinition[] = [
   {
     id: 'neon', cost: 3000,
     name: { ru: 'Неоновая лаборатория', en: 'Neon Lab' },
-    description: { ru: 'Яркая сетка и циановые контуры', en: 'Bright grid and cyan conduits' },
+    description: { ru: 'Контурная сетка', en: 'Contour grid' },
     preview: [0x03131a, 0x063e54, 0x35f4ff]
   },
   {
     id: 'biolab', cost: 9000,
     name: { ru: 'Биокапсула', en: 'Bio Vat' },
-    description: { ru: 'Живые мембраны и кислотное свечение', en: 'Living membranes and acid glow' },
+    description: { ru: 'Живые мембраны', en: 'Living membranes' },
     preview: [0x0b1708, 0x214d1c, 0x9cff57]
   },
   {
     id: 'reactor', cost: 22000,
     name: { ru: 'Реактор', en: 'Reactor' },
-    description: { ru: 'Горячее ядро и силовые дуги', en: 'Hot core and power arcs' },
+    description: { ru: 'Горячее ядро', en: 'Hot core' },
     preview: [0x1b0904, 0x6b2410, 0xffa126]
   },
   {
     id: 'abyss', cost: 50000,
     name: { ru: 'Портал Бездны', en: 'Abyss Gate' },
-    description: { ru: 'Поздний фон с ярким пространственным разломом', en: 'Late-game background with a bright dimensional rift' },
+    description: { ru: 'Пространственный разлом', en: 'Dimensional rift' },
     preview: [0x08030f, 0x351056, 0xd26cff]
   }
 ];
