@@ -88,6 +88,10 @@ async function getTelemetry() {
   return await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(TELEMETRY_KEY)}) || '{}')`);
 }
 
+async function getSave() {
+  return await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
+}
+
 async function acceptedDrop(x) {
   const before = (await getTelemetry())?.drop ?? 0;
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -111,24 +115,22 @@ await waitForCanvas();
 await sleep(400);
 await screenshot('mutants-smoke-start.png');
 
-// Exercise one voluntary rewarded action using the local test-only mock ad path.
 await clickGame(395, 236);
 await sleep(650);
 
-// One vertical lane intentionally creates predictable merge chains while remaining far below overflow pressure.
 for (let i = 0; i < 8; i += 1) {
   await acceptedDrop(270);
 }
 await sleep(1100);
 
 const telemetry = await getTelemetry();
-const saveBeforeReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
+const saveAfterPlay = await getSave();
 
 if ((telemetry?.drop ?? 0) < 8) throw new Error(`Expected 8 accepted drops, got ${telemetry?.drop ?? 0}`);
 if ((telemetry?.merge_tier_1 ?? 0) < 1) throw new Error('Expected at least one tier-1 merge');
 if ((telemetry?.reward_upgrade_next_rewarded ?? 0) < 1) throw new Error('Mock rewarded upgrade did not complete');
-if (!Array.isArray(saveBeforeReload?.discovered) || saveBeforeReload.discovered.length < 2) {
-  throw new Error('Expected at least two discovered forms before reload');
+if (!Array.isArray(saveAfterPlay?.discovered) || saveAfterPlay.discovered.length < 2) {
+  throw new Error('Expected at least two discovered forms after gameplay');
 }
 
 await screenshot('mutants-smoke-play.png');
@@ -137,14 +139,18 @@ await clickGame(450, 205);
 await sleep(350);
 await screenshot('mutants-smoke-collection.png');
 await clickGame(270, 893);
-await sleep(300);
+await sleep(450);
 
+// Take the reference snapshot at the actual reload boundary, after any final physics/merge callbacks have settled.
+const saveAtReloadBoundary = await getSave();
 await send('Page.reload', { ignoreCache: true });
 await waitForCanvas();
 await sleep(500);
-const saveAfterReload = await evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(SAVE_KEY)}) || '{}')`);
-if ((saveAfterReload?.coins ?? -1) !== (saveBeforeReload?.coins ?? -2)) throw new Error('Coins did not persist across reload');
-if (JSON.stringify(saveAfterReload?.discovered ?? []) !== JSON.stringify(saveBeforeReload?.discovered ?? [])) {
+const saveAfterReload = await getSave();
+
+if ((saveAfterReload?.coins ?? -1) !== (saveAtReloadBoundary?.coins ?? -2)) throw new Error('Coins did not persist across reload');
+if ((saveAfterReload?.bestScore ?? -1) !== (saveAtReloadBoundary?.bestScore ?? -2)) throw new Error('Best score did not persist across reload');
+if (JSON.stringify(saveAfterReload?.discovered ?? []) !== JSON.stringify(saveAtReloadBoundary?.discovered ?? [])) {
   throw new Error('Discovered forms did not persist across reload');
 }
 
@@ -156,6 +162,7 @@ const report = {
   rewardedUpgrade: telemetry.reward_upgrade_next_rewarded ?? 0,
   discovered: saveAfterReload.discovered?.length ?? 0,
   coins: saveAfterReload.coins ?? 0,
+  bestScore: saveAfterReload.bestScore ?? 0,
   collectionScreenshotTaken: true,
   reloadPersistence: true
 };
