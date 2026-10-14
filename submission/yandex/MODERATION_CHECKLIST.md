@@ -17,7 +17,7 @@
 
 ## Ads
 
-- [ ] Rewarded: Remove Top works.
+- [ ] Rewarded: `Убрать выбранный` enters selection mode, lets the player choose a concrete form, removes it only after reward confirmation, and awards the matching score/DNA bonus.
 - [ ] Rewarded: Upgrade Next works and resumes gameplay.
 - [ ] Rewarded: Save Run works and resumes gameplay.
 - [ ] Rewarded: DNA x2 works and starts a clean new run.
@@ -40,7 +40,7 @@
 
 - [ ] Local save survives page reload.
 - [ ] DNA/research DNA are not duplicated by reload.
-- [ ] Genome unlock thresholds display correctly.
+- [ ] Predator unlock threshold displays as 1,250 research DNA; later genome thresholds remain correct.
 - [ ] Background purchase reduces wallet DNA, not lifetime research DNA.
 
 ## Draft fields
@@ -74,5 +74,5 @@
 - [ ] Draft opens through Yandex Games on desktop.
 - [ ] Draft opens through Yandex Games on Android.
 - [ ] One complete run played through to game over.
-- [ ] Save Run and DNA x2 verified with Yandex SDK mocks.
+- [ ] Selected removal, Save Run and DNA x2 verified with Yandex SDK mocks.
 - [ ] No red debug-panel errors remain.
