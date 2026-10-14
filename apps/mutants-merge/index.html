@@ -5,16 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1019" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>Mutants: Unlock the Final Form</title>
+  <title>Mutants: Genome Merge</title>
   <style>
     html, body, #game { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0b1019; }
-    body { touch-action: none; user-select: none; -webkit-user-select: none; overscroll-behavior: none; }
-    canvas { display: block; margin: 0 auto; touch-action: none; }
+    body { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+    canvas { display: block; margin: 0 auto; touch-action: none; -webkit-touch-callout: none; }
   </style>
   <script src="/sdk.js"></script>
 </head>
 <body>
   <div id="game"></div>
+  <script>
+    document.addEventListener('contextmenu', (event) => event.preventDefault(), { passive: false });
+  </script>
   <script type="module" src="/src/bootstrap.ts"></script>
 </body>
 </html>
