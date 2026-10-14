@@ -1,7 +1,11 @@
 export type Locale = 'ru' | 'en';
 
 export function detectLocale(): Locale {
-  const lang = navigator.language.toLowerCase();
+  const platformLang = (globalThis as any).__YG_LANG__;
+  const lang = (typeof platformLang === 'string' && platformLang.length > 0
+    ? platformLang
+    : navigator.language
+  ).toLowerCase();
   return lang.startsWith('ru') ? 'ru' : 'en';
 }
 
