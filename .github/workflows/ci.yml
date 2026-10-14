@@ -28,3 +28,16 @@ jobs:
 
       - name: Build Reseller
         run: npm run build:reseller
+
+      - name: Verify Mutants package shape
+        run: |
+          test -f apps/mutants-merge/dist/index.html
+          test $(du -sm apps/mutants-merge/dist | cut -f1) -lt 100
+
+      - name: Upload Mutants browser build
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-browser-build
+          path: apps/mutants-merge/dist/
+          if-no-files-found: error
+          retention-days: 7
