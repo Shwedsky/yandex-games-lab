@@ -29,15 +29,30 @@ jobs:
       - name: Build Reseller
         run: npm run build:reseller
 
-      - name: Verify Mutants package shape
-        run: |
-          test -f apps/mutants-merge/dist/index.html
-          test $(du -sm apps/mutants-merge/dist | cut -f1) -lt 100
+      - name: Verify Yandex package
+        run: node scripts/verify-yandex-package.mjs
 
-      - name: Upload Mutants browser build
+      - name: Prepare Windows test kit
+        run: |
+          rm -rf .test-kit
+          mkdir -p .test-kit
+          cp -R apps/mutants-merge/dist/. .test-kit/
+          cp tools/START_TEST.cmd .test-kit/
+          cp tools/START_TEST.ps1 .test-kit/
+          cp tools/README_TEST.txt .test-kit/
+
+      - name: Upload Yandex package
         uses: actions/upload-artifact@v4
         with:
-          name: mutants-browser-build
+          name: mutants-yandex-package
           path: apps/mutants-merge/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload human test kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-test-kit
+          path: .test-kit/
           if-no-files-found: error
           retention-days: 7
