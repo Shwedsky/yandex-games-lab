@@ -31,7 +31,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0x72e06a, 0x30d5c8, 0x58a6ff, 0x8d72e1, 0xd267e3, 0xff6b9a, 0xff7a59, 0xffb347, 0xf4e04d, 0xb8ef5a, 0xffffff]
   },
   {
-    id: 'predator', unlockResearch: 800,
+    id: 'predator', unlockResearch: 1500,
     name: { ru: 'Хищная линия', en: 'Predator Line' },
     description: { ru: 'Клыки, рога и агрессивные формы', en: 'Fangs, horns and aggressive forms' },
     forms: {
@@ -41,7 +41,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0xd8ef8a, 0xb9e769, 0x91d84f, 0x70c345, 0xe8c448, 0xe39a3f, 0xdd7040, 0xd14949, 0xb63d58, 0x8e344e, 0x55243f]
   },
   {
-    id: 'parasite', unlockResearch: 2500,
+    id: 'parasite', unlockResearch: 5000,
     name: { ru: 'Паразитарная линия', en: 'Parasite Line' },
     description: { ru: 'Колонии, коконы и захватчики', en: 'Colonies, cocoons and invaders' },
     forms: {
@@ -51,7 +51,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0xc7ef92, 0x9edb78, 0x68c982, 0x48b28f, 0x529b95, 0x707f9d, 0x8c6598, 0xaa5387, 0xc24570, 0xde5269, 0xf47a6f]
   },
   {
-    id: 'cyber', unlockResearch: 6000,
+    id: 'cyber', unlockResearch: 12000,
     name: { ru: 'Кибермутация', en: 'Cyber Mutation' },
     description: { ru: 'Синтетические организмы и машины', en: 'Synthetic organisms and machines' },
     forms: {
@@ -61,7 +61,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0x84f3ff, 0x58d9ff, 0x32bfff, 0x3f9cff, 0x5b7eff, 0x735de5, 0x8b48c8, 0xaa3fac, 0xce438c, 0xee5e7a, 0xffffff]
   },
   {
-    id: 'psi', unlockResearch: 12000,
+    id: 'psi', unlockResearch: 25000,
     name: { ru: 'Пси-формы', en: 'Psi Forms' },
     description: { ru: 'Энергетическая и ментальная эволюция', en: 'Energetic and mental evolution' },
     forms: {
@@ -71,7 +71,7 @@ export const GENOMES: GenomeDefinition[] = [
     colors: [0xbefcff, 0xa5e9ff, 0xa6cfff, 0xb8b6ff, 0xca9cff, 0xdf88f5, 0xf27fdd, 0xff84c5, 0xff9aae, 0xffbea0, 0xfff1bb]
   },
   {
-    id: 'abyss', unlockResearch: 22000,
+    id: 'abyss', unlockResearch: 50000,
     name: { ru: 'Бездна', en: 'Abyss' },
     description: { ru: 'Формы из-за границы камеры', en: 'Forms from beyond the chamber' },
     forms: {
@@ -87,31 +87,31 @@ export const BACKGROUNDS: BackgroundDefinition[] = [
     id: 'void', cost: 0,
     name: { ru: 'Тёмная камера', en: 'Dark Chamber' },
     description: { ru: 'Базовый фон', en: 'Default background' },
-    preview: [0x0b1019, 0x151d2b, 0x42536c]
+    preview: [0x090d16, 0x182338, 0x5d7396]
   },
   {
-    id: 'neon', cost: 1000,
+    id: 'neon', cost: 3000,
     name: { ru: 'Неоновая лаборатория', en: 'Neon Lab' },
-    description: { ru: 'Первый косметический апгрейд', en: 'First cosmetic upgrade' },
-    preview: [0x07151c, 0x0b3948, 0x2de2e6]
+    description: { ru: 'Яркая сетка и циановые контуры', en: 'Bright grid and cyan conduits' },
+    preview: [0x03131a, 0x063e54, 0x35f4ff]
   },
   {
-    id: 'biolab', cost: 2500,
+    id: 'biolab', cost: 9000,
     name: { ru: 'Биокапсула', en: 'Bio Vat' },
-    description: { ru: 'Живая органическая камера', en: 'Living organic chamber' },
-    preview: [0x11150e, 0x27351c, 0x8fdc58]
+    description: { ru: 'Живые мембраны и кислотное свечение', en: 'Living membranes and acid glow' },
+    preview: [0x0b1708, 0x214d1c, 0x9cff57]
   },
   {
-    id: 'reactor', cost: 6000,
+    id: 'reactor', cost: 22000,
     name: { ru: 'Реактор', en: 'Reactor' },
-    description: { ru: 'Тёплое ядро и силовые контуры', en: 'Hot core and power conduits' },
-    preview: [0x160e09, 0x472218, 0xff9f43]
+    description: { ru: 'Горячее ядро и силовые дуги', en: 'Hot core and power arcs' },
+    preview: [0x1b0904, 0x6b2410, 0xffa126]
   },
   {
-    id: 'abyss', cost: 12000,
+    id: 'abyss', cost: 50000,
     name: { ru: 'Портал Бездны', en: 'Abyss Gate' },
-    description: { ru: 'Редкий поздний фон', en: 'Rare late-game background' },
-    preview: [0x09070f, 0x241235, 0xb15cff]
+    description: { ru: 'Поздний фон с ярким пространственным разломом', en: 'Late-game background with a bright dimensional rift' },
+    preview: [0x08030f, 0x351056, 0xd26cff]
   }
 ];
 
