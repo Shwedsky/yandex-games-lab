@@ -35,11 +35,17 @@ jobs:
           cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
           trap cleanup EXIT
           for i in $(seq 1 60); do test -s "$PROFILE/DevToolsActivePort" && break; sleep 0.2; done
-          test -s "$PROFILE/DevToolsActivePort"
+          if ! test -s "$PROFILE/DevToolsActivePort"; then cat /tmp/promo-chrome.log; exit 1; fi
           CDP_PORT=$(head -n1 "$PROFILE/DevToolsActivePort")
-          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/capture-promo.mjs
+          set +e
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/capture-promo.mjs >promo-raw/capture.log 2>&1
+          CAPTURE_STATUS=$?
+          set -e
           cp /tmp/promo-chrome.log promo-raw/ || true
           cp /tmp/promo-server.log promo-raw/ || true
+          cat promo-raw/capture.log
+          find promo-raw -maxdepth 2 -type f -printf '%P %k KB\n' | sort | tail -30 || true
+          if [ "$CAPTURE_STATUS" -ne 0 ]; then exit "$CAPTURE_STATUS"; fi
       - name: Build Yandex-size screenshots and videos
         run: |
           ffmpeg -y -loglevel error -i promo-raw/mobile-01-biomass.png -vf "scale=1440:2560:flags=lanczos" -frames:v 1 promo-media/mobile-01-gameplay.png
