@@ -9,6 +9,7 @@ on:
 
 jobs:
   build:
+    if: github.head_ref != 'feature/reseller-playable-v0' && github.ref_name != 'feature/reseller-playable-v0'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
