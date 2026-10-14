@@ -113,3 +113,103 @@ jobs:
             mutants-server.log
           if-no-files-found: warn
           retention-days: 7
+
+  reseller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Reseller
+        run: npm run build:reseller
+
+      - name: Verify Reseller Yandex package
+        run: node scripts/verify-reseller-package.mjs
+
+      - name: Reseller browser core-loop smoke
+        run: |
+          python3 -m http.server 4184 --directory apps/reseller-empire/dist >/tmp/reseller-server.log 2>&1 &
+          SERVER_PID=$!
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          CHROME_PROFILE=/tmp/reseller-chrome
+          rm -rf "$CHROME_PROFILE"
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --remote-debugging-port=0 --user-data-dir="$CHROME_PROFILE" "http://127.0.0.1:4184/?mockAds=1&ciTest=1" >/tmp/reseller-chrome.log 2>&1 &
+          CHROME_PID=$!
+          cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 60); do
+            if test -s "$CHROME_PROFILE/DevToolsActivePort"; then break; fi
+            sleep 0.2
+          done
+          if ! test -s "$CHROME_PROFILE/DevToolsActivePort"; then
+            cat /tmp/reseller-chrome.log
+            exit 1
+          fi
+          CDP_PORT=$(head -n1 "$CHROME_PROFILE/DevToolsActivePort")
+          set +e
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/reseller-browser-smoke.mjs >reseller-smoke.log 2>&1
+          SMOKE_STATUS=$?
+          set -e
+          cp /tmp/reseller-chrome.log reseller-chrome.log || true
+          cp /tmp/reseller-server.log reseller-server.log || true
+          cat reseller-smoke.log
+          ls -lah reseller-smoke* reseller-chrome.log reseller-server.log 2>/dev/null || true
+          if [ "$SMOKE_STATUS" -ne 0 ]; then exit "$SMOKE_STATUS"; fi
+          test -s reseller-smoke-start.png
+          test -s reseller-smoke-rewarded.png
+          test -s reseller-smoke-inventory.png
+          test -s reseller-smoke-offer.png
+          test -s reseller-smoke-next-day.png
+          test -s reseller-smoke-report.json
+
+      - name: Prepare Reseller Windows test kit
+        if: success()
+        run: |
+          rm -rf reseller-test-kit
+          mkdir -p reseller-test-kit
+          cp -R apps/reseller-empire/dist/. reseller-test-kit/
+          cp tools/START_RESELLER_TEST.cmd reseller-test-kit/START_TEST.cmd
+          cp tools/START_RESELLER_TEST.ps1 reseller-test-kit/START_TEST.ps1
+          cp tools/README_RESELLER_TEST.txt reseller-test-kit/README_TEST.txt
+
+      - name: Upload Reseller Yandex package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-yandex-package
+          path: apps/reseller-empire/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Reseller human test kit
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-test-kit
+          path: reseller-test-kit/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Reseller smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reseller-ci-smoke
+          path: |
+            reseller-smoke*.png
+            reseller-smoke*.json
+            reseller-smoke.log
+            reseller-chrome.log
+            reseller-server.log
+          if-no-files-found: warn
+          retention-days: 7
