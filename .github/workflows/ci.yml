@@ -38,11 +38,22 @@ jobs:
           SERVER_PID=$!
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --remote-debugging-port=9222 --user-data-dir=/tmp/mutants-chrome "http://127.0.0.1:4173/?mockAds=1" >/tmp/mutants-chrome.log 2>&1 &
+          CHROME_PROFILE=/tmp/mutants-chrome
+          rm -rf "$CHROME_PROFILE"
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --remote-debugging-port=0 --user-data-dir="$CHROME_PROFILE" "http://127.0.0.1:4173/?mockAds=1" >/tmp/mutants-chrome.log 2>&1 &
           CHROME_PID=$!
           cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
           trap cleanup EXIT
-          node scripts/browser-smoke.mjs
+          for i in $(seq 1 50); do
+            if test -s "$CHROME_PROFILE/DevToolsActivePort"; then break; fi
+            sleep 0.2
+          done
+          if ! test -s "$CHROME_PROFILE/DevToolsActivePort"; then
+            cat /tmp/mutants-chrome.log
+            exit 1
+          fi
+          CDP_PORT=$(head -n1 "$CHROME_PROFILE/DevToolsActivePort")
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/browser-smoke.mjs
           test -s mutants-smoke-start.png
           test -s mutants-smoke-play.png
           test -s mutants-smoke-collection.png
