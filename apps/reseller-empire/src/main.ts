@@ -144,7 +144,6 @@ function generateMarket() {
     const condition = Math.round(35 + random() * 64);
     const rarity = random() < .08 ? 3 : random() < .25 ? 2 : 1;
     const defect = random() < .24;
-    const stage = stageInfo().stage;
     const stageScale = stage === 'garage' ? .52 : stage === 'kiosk' ? .9 : 1.25;
     const base = (data.base[0] + random() * (data.base[1] - data.base[0])) * stageScale;
     const conditionFactor = .48 + condition / 190;
