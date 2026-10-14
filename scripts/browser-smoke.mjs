@@ -68,19 +68,40 @@ async function waitForCanvas() {
 }
 
 async function clickGame(x, y) {
-  const ok = await evaluate(`(() => {
+  const point = await evaluate(`(() => {
     const canvas = document.querySelector('canvas');
-    if (!canvas) return false;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const clientX = rect.left + (${x} / 540) * rect.width;
-    const clientY = rect.top + (${y} / 960) * rect.height;
-    const base = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0 };
-    canvas.dispatchEvent(new PointerEvent('pointermove', { ...base, buttons: 0 }));
-    canvas.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
-    canvas.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0 }));
-    return true;
+    return {
+      x: rect.left + (${x} / 540) * rect.width,
+      y: rect.top + (${y} / 960) * rect.height
+    };
   })()`);
-  if (!ok) throw new Error(`Could not click game at ${x},${y}`);
+  if (!point) throw new Error(`Could not resolve canvas coordinates for ${x},${y}`);
+
+  await send('Input.dispatchMouseEvent', {
+    type: 'mouseMoved',
+    x: point.x,
+    y: point.y,
+    button: 'none',
+    buttons: 0
+  });
+  await send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    buttons: 1,
+    clickCount: 1
+  });
+  await send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1
+  });
 }
 
 async function screenshot(path) {
