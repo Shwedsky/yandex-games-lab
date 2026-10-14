@@ -1,0 +1,71 @@
+name: Build Mutants promo media
+
+on:
+  push:
+    branches:
+      - feature/mutants-playable-v0
+    paths:
+      - scripts/capture-promo.mjs
+      - .github/workflows/promo-media.yml
+
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build:mutants
+      - name: Capture real gameplay
+        run: |
+          rm -rf promo-raw promo-media
+          mkdir -p promo-raw/frames promo-media
+          python3 -m http.server 4173 --directory apps/mutants-merge/dist >/tmp/promo-server.log 2>&1 &
+          SERVER_PID=$!
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          PROFILE=/tmp/mutants-promo-chrome
+          rm -rf "$PROFILE"
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=540,960 --lang=ru-RU --remote-debugging-port=0 --user-data-dir="$PROFILE" "http://127.0.0.1:4173/?mockAds=1&ciTest=1" >/tmp/promo-chrome.log 2>&1 &
+          CHROME_PID=$!
+          cleanup() { kill $CHROME_PID $SERVER_PID 2>/dev/null || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 60); do test -s "$PROFILE/DevToolsActivePort" && break; sleep 0.2; done
+          test -s "$PROFILE/DevToolsActivePort"
+          CDP_PORT=$(head -n1 "$PROFILE/DevToolsActivePort")
+          CDP_HOST="http://127.0.0.1:$CDP_PORT" node scripts/capture-promo.mjs
+          cp /tmp/promo-chrome.log promo-raw/ || true
+          cp /tmp/promo-server.log promo-raw/ || true
+      - name: Build Yandex-size screenshots and videos
+        run: |
+          ffmpeg -y -loglevel error -i promo-raw/mobile-01-biomass.png -vf "scale=1440:2560:flags=lanczos" -frames:v 1 promo-media/mobile-01-gameplay.png
+          ffmpeg -y -loglevel error -i promo-raw/mobile-04-predator-neon.png -vf "scale=1440:2560:flags=lanczos" -frames:v 1 promo-media/mobile-02-predator-neon.png
+          ffmpeg -y -loglevel error -i promo-raw/mobile-02-genome-lab.png -vf "scale=1440:2560:flags=lanczos" -frames:v 1 promo-media/mobile-03-genome-lab.png
+          ffmpeg -y -loglevel error -i promo-raw/mobile-03-background-shop.png -vf "scale=1440:2560:flags=lanczos" -frames:v 1 promo-media/mobile-04-background-shop.png
+          ffmpeg -y -loglevel error -i promo-raw/mobile-01-biomass.png -vf "crop=540:304:0:130,scale=1920:1080:flags=lanczos" -frames:v 1 promo-media/desktop-01-gameplay.png
+          ffmpeg -y -loglevel error -i promo-raw/mobile-04-predator-neon.png -vf "crop=540:304:0:180,scale=1920:1080:flags=lanczos" -frames:v 1 promo-media/desktop-02-predator-neon.png
+          ffmpeg -y -loglevel error -framerate 10 -i promo-raw/frames/frame-%04d.png -vf "scale=1080:1920:flags=lanczos" -c:v libx264 -pix_fmt yuv420p -preset medium -crf 20 -movflags +faststart promo-media/gameplay-vertical-1080x1920.mp4
+          ffmpeg -y -loglevel error -framerate 10 -i promo-raw/frames/frame-%04d.png -vf "crop=540:304:0:180,scale=1920:1080:flags=lanczos" -c:v libx264 -pix_fmt yuv420p -preset medium -crf 20 -movflags +faststart promo-media/gameplay-horizontal-1920x1080.mp4
+          cp promo-raw/capture-report.json promo-media/
+          du -h promo-media/*
+      - name: Upload Yandex promo media
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-yandex-promo-media
+          path: promo-media/
+          retention-days: 14
+      - name: Upload capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-promo-raw
+          path: |
+            promo-raw/*.png
+            promo-raw/*.json
+            promo-raw/*.log
+          if-no-files-found: warn
+          retention-days: 7
