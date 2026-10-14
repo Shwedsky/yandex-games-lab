@@ -14,7 +14,7 @@
   --blue: #77b8ff;
 }
 * { box-sizing: border-box; }
-html, body, #app { margin: 0; min-height: 100%; background: var(--bg); }
+html, body, #app { margin: 0; min-height: 100%; background: var(--bg); cursor: default; }
 body { min-height: 100vh; overscroll-behavior: none; }
 button { font: inherit; }
 .app-shell { width: min(100%, 760px); margin: 0 auto; padding: 14px 14px 96px; }

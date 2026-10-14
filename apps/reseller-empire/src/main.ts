@@ -22,6 +22,7 @@ type MarketItem = {
 type OwnedItem = MarketItem & {
   paid: number;
   repairSpent: number;
+  prepCount?: number;
   state: ItemState;
   listedPrice?: number;
 };
@@ -110,9 +111,9 @@ function rng(seed: number) {
   };
 }
 function stageInfo() {
-  if (save.reputation >= 120) return { stage: 'shop' as Stage, slots: 10, next: 0, threshold: 120 };
-  if (save.reputation >= 40) return { stage: 'kiosk' as Stage, slots: 7, next: 120 - save.reputation, threshold: 120 };
-  return { stage: 'garage' as Stage, slots: 4, next: 40 - save.reputation, threshold: 40 };
+  if (save.reputation >= 60) return { stage: 'shop' as Stage, slots: 10, next: 0, threshold: 60 };
+  if (save.reputation >= 20) return { stage: 'kiosk' as Stage, slots: 7, next: 60 - save.reputation, threshold: 60 };
+  return { stage: 'garage' as Stage, slots: 4, next: 20 - save.reputation, threshold: 20 };
 }
 function stageLabel(stage: Stage) { return TEXT[locale][stage]; }
 function normalizeSave(raw: Partial<Save>): Save {
@@ -135,18 +136,22 @@ function generateMarket() {
   const random = rng(save.marketSeed + save.day * 7919 + save.reputation * 31);
   const categories = Object.keys(CATEGORIES) as Category[];
   market = Array.from({ length: MAX_MARKET }, (_, i) => {
-    const category = categories[Math.floor(random() * categories.length)];
+    const stage = stageInfo().stage;
+    const pool: Category[] = stage === 'garage' ? ['household','household','bike','bike','phone'] : stage === 'kiosk' ? ['household','bike','phone','phone','electronics'] : categories;
+    const category = pool[Math.floor(random() * pool.length)];
     const data = CATEGORIES[category];
     const names = data[locale];
     const condition = Math.round(35 + random() * 64);
     const rarity = random() < .08 ? 3 : random() < .25 ? 2 : 1;
     const defect = random() < .24;
-    const base = data.base[0] + random() * (data.base[1] - data.base[0]);
+    const stage = stageInfo().stage;
+    const stageScale = stage === 'garage' ? .52 : stage === 'kiosk' ? .9 : 1.25;
+    const base = (data.base[0] + random() * (data.base[1] - data.base[0])) * stageScale;
     const conditionFactor = .48 + condition / 190;
     const rarityFactor = rarity === 3 ? 1.7 : rarity === 2 ? 1.25 : 1;
     const defectFactor = defect ? .67 : 1;
     const fairValue = Math.round(base * conditionFactor * rarityFactor * defectFactor / 50) * 50;
-    const sellerMood = .86 + random() * .42;
+    const sellerMood = .95 + random() * .20;
     const ask = Math.max(250, Math.round(fairValue * sellerMood / 50) * 50);
     return { id: `d${save.day}-${save.marketSeed}-${i}`, category, title: names[Math.floor(random() * names.length)], icon: data.icon, condition, rarity, defect, fairValue, ask, sellerMood, revealed: false };
   });
@@ -159,8 +164,8 @@ function estimate(item: MarketItem) {
   return [Math.round(item.fairValue * (1 - width) / 50) * 50, Math.round(item.fairValue * (1 + width) / 50) * 50];
 }
 function resaleValue(item: MarketItem | OwnedItem) {
-  const prep = 'repairSpent' in item ? Math.min(.22, item.repairSpent / Math.max(1, item.fairValue) * .9) : 0;
-  return Math.round(item.fairValue * (1.07 + prep) / 50) * 50;
+  const prep = 'repairSpent' in item ? Math.min(.10, item.repairSpent / Math.max(1, item.fairValue) * .55) : 0;
+  return Math.round(item.fairValue * (1.035 + prep) / 50) * 50;
 }
 function inventorySlots() { return stageInfo().slots; }
 function ownedCount() { return save.inventory.length; }
@@ -184,7 +189,7 @@ function buy(item: MarketItem, price = item.ask) {
   if (ownedCount() >= inventorySlots()) return toast(TEXT[locale].full);
   if (save.cash < price) return toast(TEXT[locale].noMoney);
   save.cash -= price;
-  save.inventory.push({ ...item, paid: price, repairSpent: 0, state: 'owned' });
+  save.inventory.push({ ...item, paid: price, repairSpent: 0, prepCount: 0, state: 'owned' });
   market = market.filter((x) => x.id !== item.id);
   log(`${locale === 'ru' ? 'Куплено' : 'Bought'}: ${item.title} · ${money(price)}`);
   persist(); render();
@@ -192,20 +197,27 @@ function buy(item: MarketItem, price = item.ask) {
 
 function startNegotiation(item: MarketItem) { negotiationItem = item; render(); }
 function sellerCounter(item: MarketItem, offer: number) {
-  const floor = Math.round(item.fairValue * (.74 + (item.sellerMood - .86) * .22) / 50) * 50;
-  if (offer >= floor) { buy(item, offer); negotiationItem = null; return; }
-  const counter = Math.max(offer + 100, Math.round(((item.ask + offer) / 2) / 50) * 50);
+  const floor = Math.round(item.fairValue * (.88 + (item.sellerMood - .95) * .16) / 50) * 50;
+  if (offer >= floor) {
+    item.ask = offer;
+    toast(locale === 'ru' ? `Продавец согласен на ${money(offer)}. Подтверди покупку.` : `Seller agrees to ${money(offer)}. Confirm the purchase.`);
+    render();
+    return;
+  }
+  const counter = Math.max(floor, Math.max(offer + 100, Math.round(((item.ask + offer) / 2) / 50) * 50));
   item.ask = counter;
-  toast(locale === 'ru' ? `Продавец готов на ${money(counter)}` : `Seller counters ${money(counter)}`);
+  toast(locale === 'ru' ? `Продавец предлагает ${money(counter)}. Решение за тобой.` : `Seller counters ${money(counter)}. Your call.`);
   render();
 }
 
 function repair(item: OwnedItem) {
   if (item.state !== 'owned') return;
-  const cost = Math.max(150, Math.round(item.fairValue * (item.defect ? .1 : .045) / 50) * 50);
+  item.prepCount ??= 0;
+  if (item.prepCount >= 1) return toast(locale === 'ru' ? 'Предмет уже подготовлен' : 'Item is already prepped');
+  const cost = Math.max(150, Math.round(item.fairValue * (item.defect ? .08 : .04) / 50) * 50);
   if (save.cash < cost) return toast(TEXT[locale].noMoney);
-  save.cash -= cost; item.repairSpent += cost; item.condition = clamp(item.condition + (item.defect ? 18 : 9), 1, 100); item.defect = false;
-  item.fairValue = Math.round(item.fairValue * 1.12 / 50) * 50;
+  save.cash -= cost; item.repairSpent += cost; item.prepCount = 1; item.condition = clamp(item.condition + (item.defect ? 16 : 8), 1, 100); item.defect = false;
+  item.fairValue = Math.round(item.fairValue * 1.07 / 50) * 50;
   log(`${locale === 'ru' ? 'Подготовка' : 'Prep'}: ${item.title} · -${money(cost)}`);
   persist(); render();
 }
@@ -257,12 +269,12 @@ async function endDay() {
 }
 function generateRescueLot(): OwnedItem {
   const item: MarketItem = { id: `rescue-${save.day}`, category: 'household', title: locale === 'ru' ? 'Старый набор инструментов' : 'Old Tool Set', icon: '🧰', condition: 55, rarity: 1, defect: false, fairValue: 1300, ask: 0, sellerMood: 1, revealed: true };
-  return { ...item, paid: 0, repairSpent: 0, state: 'owned' };
+  return { ...item, paid: 0, repairSpent: 0, prepCount: 0, state: 'owned' };
 }
 
 function stageProgress() {
   const s = stageInfo(); if (s.stage === 'shop') return 100;
-  const from = s.stage === 'garage' ? 0 : 40; return clamp((save.reputation - from) / (s.threshold - from) * 100, 0, 100);
+  const from = s.stage === 'garage' ? 0 : 20; return clamp((save.reputation - from) / (s.threshold - from) * 100, 0, 100);
 }
 function card(item: MarketItem) {
   const [lo, hi] = estimate(item); const margin = resaleValue(item) - item.ask;
@@ -279,7 +291,7 @@ function ownedCard(item: OwnedItem) {
   return `<article class="card">
     <div class="card-title"><div class="icon">${item.icon}</div><div><h3>${item.title}</h3><div class="meta">${TEXT[locale].condition}: ${item.condition}% · ${item.state === 'listed' ? TEXT[locale].listed : TEXT[locale].owned}</div></div></div>
     <div class="kpi"><div><small>${TEXT[locale].paid}</small><strong>${money(invested)}</strong></div><div><small>${TEXT[locale].expected}</small><strong class="${delta >= 0 ? 'good' : 'bad'}">${money(expected)}</strong></div></div>
-    <div class="actions">${item.state === 'owned' ? `<button class="btn" data-repair="${item.id}">${TEXT[locale].repair}</button><button class="btn good" data-list="${item.id}">${TEXT[locale].list}</button>` : `<button class="btn reward" data-instant="${item.id}">▶ ${TEXT[locale].instant}</button>`}</div>
+    <div class="actions">${item.state === 'owned' ? `<button class="btn" data-repair="${item.id}" ${(item.prepCount ?? 0) >= 1 ? 'disabled' : ''}>${(item.prepCount ?? 0) >= 1 ? (locale === 'ru' ? 'Подготовлено' : 'Prepped') : TEXT[locale].repair}</button><button class="btn good" data-list="${item.id}">${TEXT[locale].list}</button>` : `<button class="btn reward" data-instant="${item.id}">▶ ${TEXT[locale].instant}</button>`}</div>
   </article>`;
 }
 function buyerPanel() {
@@ -291,7 +303,7 @@ function buyerPanel() {
 function modal() {
   if (!negotiationItem) return '';
   const item = negotiationItem;
-  return `<div class="modal-backdrop"><div class="modal"><h2>${TEXT[locale].negotiate}: ${item.title}</h2><div class="quote"><small>${TEXT[locale].sellerSays}</small><div class="offer-amount">${money(item.ask)}</div></div><div class="actions"><button class="btn primary" data-seller-accept>${TEXT[locale].deal}</button><button class="btn" data-seller-offer=".90">${TEXT[locale].offerLow}</button><button class="btn" data-seller-offer=".95">${TEXT[locale].offerMed}</button><button class="btn ghost" data-seller-walk>${TEXT[locale].walk}</button></div></div></div>`;
+  return `<div class="modal-backdrop"><div class="modal"><h2>${TEXT[locale].negotiate}: ${item.title}</h2><div class="quote"><small>${TEXT[locale].sellerSays}</small><div class="offer-amount">${money(item.ask)}</div></div><div class="actions"><button class="btn primary" data-seller-accept>${locale === 'ru' ? `Купить за ${money(item.ask)}` : `Buy for ${money(item.ask)}`}</button><button class="btn" data-seller-offer=".90">${TEXT[locale].offerLow}</button><button class="btn" data-seller-offer=".95">${TEXT[locale].offerMed}</button><button class="btn ghost" data-seller-walk>${TEXT[locale].walk}</button></div></div></div>`;
 }
 
 function render() {
@@ -303,7 +315,7 @@ function render() {
       <div class="stat"><small>${TEXT[locale].cash}</small><strong>${money(save.cash)}</strong></div>
       <div class="stat"><small>${TEXT[locale].rep}</small><strong>${save.reputation}</strong><div class="progress"><span style="width:${stageProgress()}%"></span></div></div>
       <div class="stat"><small>${TEXT[locale].profit}</small><strong class="${save.lifetimeProfit >= 0 ? 'good' : 'bad'}">${save.lifetimeProfit >= 0 ? '+' : ''}${money(save.lifetimeProfit)}</strong></div>
-      <div class="stat"><small>${TEXT[locale].business}</small><strong>${stageLabel(s.stage)}</strong><div class="meta">${s.slots} ${TEXT[locale].slots}${s.next ? ` · ${TEXT[locale].next}: ${s.next}` : ''}</div></div>
+      <div class="stat"><small>${TEXT[locale].business}</small><strong>${stageLabel(s.stage)}</strong><div class="meta">${s.slots} ${TEXT[locale].slots}${s.next ? ` · ${locale === 'ru' ? 'до улучшения' : 'to upgrade'}: ${s.next} ${locale === 'ru' ? 'реп.' : 'rep'}` : ''}</div><div class="meta">${s.stage === 'garage' ? (locale === 'ru' ? 'Киоск: 7 мест, точнее оценка, дороже рынок' : 'Kiosk: 7 slots, tighter estimates, richer market') : s.stage === 'kiosk' ? (locale === 'ru' ? 'Магазин: 10 мест, лучшие оценки, премиум-лоты' : 'Shop: 10 slots, best estimates, premium lots') : (locale === 'ru' ? 'Максимальный уровень бизнеса' : 'Maximum business tier')}</div></div>
     </section>
     <div class="layout">
       <section class="panel"><div class="panel-head"><div><h2>${TEXT[locale].feed}</h2><p>${TEXT[locale].marketHint}</p></div><button class="btn reward" data-refresh>▶ ${TEXT[locale].refresh}</button></div><div class="grid">${market.map(card).join('')}</div></section>
