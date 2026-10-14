@@ -94,6 +94,10 @@ function normalizeSave(raw: LegacySave | undefined): SaveState {
   const unlocked = Array.from(new Set((raw.unlockedGenomes ?? ['biomass']).filter((id) => validGenomeIds.has(id))));
   if (!unlocked.includes('biomass')) unlocked.unshift('biomass');
   for (const genome of GENOMES) if (researchDna >= genome.unlockResearch && !unlocked.includes(genome.id)) unlocked.push(genome.id);
+  for (const genome of GENOMES) {
+    if (!unlocked.includes(genome.id)) discoveries[genome.id] = [];
+    else if ((discoveries[genome.id]?.length ?? 0) === 0) discoveries[genome.id] = [0];
+  }
   const selectedGenome = validGenomeIds.has(raw.selectedGenome as GenomeId) && unlocked.includes(raw.selectedGenome as GenomeId)
     ? (raw.selectedGenome as GenomeId)
     : 'biomass';
@@ -634,12 +638,12 @@ class MergeScene extends Phaser.Scene {
   }
 
   private discoveryList(id: GenomeId) {
-    this.save.genomeDiscoveries[id] ??= [0];
+    this.save.genomeDiscoveries[id] ??= this.save.unlockedGenomes.includes(id) ? [0] : [];
     return this.save.genomeDiscoveries[id]!;
   }
 
   private totalDiscoveries() {
-    return GENOMES.reduce((sum, genome) => sum + this.discoveryList(genome.id).length, 0);
+    return GENOMES.reduce((sum, genome) => sum + (this.save.genomeDiscoveries[genome.id]?.length ?? 0), 0);
   }
 
   private grantDna(amount: number) {
@@ -654,7 +658,7 @@ class MergeScene extends Phaser.Scene {
     for (const genome of GENOMES) {
       if (this.save.researchDna >= genome.unlockResearch && !this.save.unlockedGenomes.includes(genome.id)) {
         this.save.unlockedGenomes.push(genome.id);
-        this.discoveryList(genome.id);
+        if ((this.save.genomeDiscoveries[genome.id]?.length ?? 0) === 0) this.save.genomeDiscoveries[genome.id] = [0];
         track(`genome_unlocked_${genome.id}`);
         if (announce && this.scene.isActive()) this.toast(`${copy().genomeUnlocked}: ${genome.name[locale]}`);
       }
