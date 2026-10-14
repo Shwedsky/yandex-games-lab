@@ -5,7 +5,7 @@ on:
     branches:
       - feature/mutants-playable-v0
     paths:
-      - scripts/apply-final-product-pass.mjs
+      - scripts/apply-final-product-pass-v2.mjs
       - .github/workflows/final-product-pass.yml
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
       - name: Apply deterministic patch
-        run: node scripts/apply-final-product-pass.mjs
+        run: node scripts/apply-final-product-pass-v2.mjs
       - name: Commit production changes
         run: |
           git config user.name "github-actions[bot]"
