@@ -845,10 +845,36 @@ class MergeScene extends Phaser.Scene {
     }
   }
 
+  private resetRunState() {
+    this.clearEndOverlay();
+    for (const mutant of [...this.getLiveMutants()]) this.removeMutant(mutant);
+    this.mergingBodies.clear();
+    this.activeGenome = genomeById(this.save.selectedGenome);
+    this.score = 0;
+    this.mergeCount = 0;
+    this.dropCount = 0;
+    this.nextTier = 0;
+    this.ended = false;
+    this.rewardBusy = false;
+    this.canDrop = true;
+    this.overflowSince = null;
+    this.revivedThisRun = false;
+    this.endRewardSettled = false;
+    this.runStartedAt = performance.now();
+    this.setDangerProgress(0);
+    this.updateNextPreview();
+    this.refreshHud();
+    if (!document.hidden) {
+      this.matter.world.resume();
+      yandexBridge.gameplayStart();
+    }
+    track('run_restart');
+  }
+
   private async rewardDoubleAndRestart() {
     if (this.endRewardSettled || this.rewardBusy) return;
     const granted = await this.withRewardedAd(() => this.settleEndReward(2), 'reward_double_dna');
-    if (granted) this.scene.restart();
+    if (granted) this.resetRunState();
   }
 
   private async restartRun() {
@@ -856,7 +882,7 @@ class MergeScene extends Phaser.Scene {
     this.settleEndReward(1);
     this.canDrop = false;
     await yandexBridge.showInterstitial();
-    this.scene.restart();
+    this.resetRunState();
   }
 
   private settleEndReward(multiplier: number) {
