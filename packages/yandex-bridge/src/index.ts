@@ -30,6 +30,14 @@ class YandexBridge {
     return Boolean(this.sdk);
   }
 
+  isMockMode(): boolean {
+    try {
+      return new URLSearchParams(globalThis.location?.search ?? '').get('mockAds') === '1';
+    } catch {
+      return false;
+    }
+  }
+
   getLanguage(fallback = 'en'): string {
     const language = this.sdk?.environment?.i18n?.lang;
     return typeof language === 'string' && language.length > 0 ? language.toLowerCase() : fallback;
@@ -63,18 +71,10 @@ class YandexBridge {
     }
   }
 
-  private mockAdsEnabled(): boolean {
-    try {
-      return new URLSearchParams(globalThis.location?.search ?? '').get('mockAds') === '1';
-    } catch {
-      return false;
-    }
-  }
-
   showInterstitial(): Promise<void> {
     return new Promise((resolve) => {
-      if (this.mockAdsEnabled()) {
-        globalThis.setTimeout(resolve, 350);
+      if (this.isMockMode()) {
+        globalThis.setTimeout(resolve, 1400);
         return;
       }
       if (!this.sdk?.adv?.showFullscreenAdv) return resolve();
@@ -95,12 +95,12 @@ class YandexBridge {
   }
 
   showRewarded(callbacks: RewardedCallbacks): void {
-    if (this.mockAdsEnabled()) {
+    if (this.isMockMode()) {
       callbacks.onOpen?.();
       globalThis.setTimeout(() => {
         callbacks.onRewarded();
         callbacks.onClose?.();
-      }, 350);
+      }, 1400);
       return;
     }
     if (!this.sdk?.adv?.showRewardedVideo) {
@@ -123,8 +123,8 @@ class YandexBridge {
 
   showRewardedAndWait(timeoutMs = 12000): Promise<boolean> {
     return new Promise((resolve) => {
-      if (this.mockAdsEnabled()) {
-        globalThis.setTimeout(() => resolve(true), 350);
+      if (this.isMockMode()) {
+        globalThis.setTimeout(() => resolve(true), 1400);
         return;
       }
       if (!this.sdk?.adv?.showRewardedVideo) return resolve(false);
