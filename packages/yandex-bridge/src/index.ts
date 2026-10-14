@@ -27,6 +27,10 @@ class YandexBridge {
     return this.initPromise;
   }
 
+  isAvailable(): boolean {
+    return Boolean(this.sdk);
+  }
+
   async gameplayReady(): Promise<void> {
     try {
       await this.sdk?.features?.LoadingAPI?.ready?.();
@@ -60,6 +64,27 @@ class YandexBridge {
         onClose: callbacks.onClose,
         onError: callbacks.onError
       }
+    });
+  }
+
+  showRewardedAndWait(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.sdk?.adv?.showRewardedVideo) return resolve(false);
+      let rewarded = false;
+      let settled = false;
+      const finish = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      this.sdk.adv.showRewardedVideo({
+        callbacks: {
+          onRewarded: () => { rewarded = true; },
+          onClose: () => finish(rewarded),
+          onError: () => finish(false)
+        }
+      });
     });
   }
 }
