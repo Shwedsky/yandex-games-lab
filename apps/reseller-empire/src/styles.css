@@ -16,6 +16,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #151f2b 0, #0b0f14 52%); }
+html, body, #app { cursor: default; }
 body { min-height: 100vh; }
 button, input { font: inherit; }
 button { color: inherit; }
@@ -31,6 +32,14 @@ button { color: inherit; }
 .stat strong { font-size: 20px; }
 .progress { height: 7px; background: #0b1118; border-radius: 999px; overflow: hidden; margin-top: 8px; }
 .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.business-progress { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: linear-gradient(110deg, #18283b, #151b27); border: 1px solid #334b68; border-radius: 16px; padding: 14px 16px; }
+.business-progress h2 { margin: 2px 0 6px; font-size: 20px; }
+.business-progress p { margin: 3px 0; color: var(--muted); }
+.business-copy { min-width: 0; }
+.requirements { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 5px; }
+.requirements span { border: 1px solid #354963; background: #101823; border-radius: 999px; padding: 5px 9px; font-size: 13px; }
+.requirements span.good { border-color: #347454; background: #132c21; }
+.trend { margin-top: 7px; display: inline-flex; border: 1px solid #344b67; background: #101a27; border-radius: 999px; padding: 5px 9px; color: #c8d8ed; font-size: 12px; }
 .nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
 .nav button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--panel); padding: 10px 14px; border-radius: 12px; cursor: pointer; }
 .nav button.active { background: #20334f; border-color: #4e79b7; }
@@ -91,6 +100,10 @@ footer { color: #6f8198; font-size: 12px; text-align: center; padding: 4px 0 16p
   .layout { grid-template-columns: 1fr; }
   .grid { grid-template-columns: 1fr; }
   .side-stack { grid-row: 1; }
+}
+@media (max-width: 620px) {
+  .business-progress { align-items: stretch; flex-direction: column; }
+  .business-progress .btn { width: 100%; }
 }
 @media (max-width: 480px) {
   .brand p { font-size: 13px; }
