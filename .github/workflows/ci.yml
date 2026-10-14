@@ -34,12 +34,12 @@ jobs:
 
       - name: Prepare Windows test kit
         run: |
-          rm -rf .test-kit
-          mkdir -p .test-kit
-          cp -R apps/mutants-merge/dist/. .test-kit/
-          cp tools/START_TEST.cmd .test-kit/
-          cp tools/START_TEST.ps1 .test-kit/
-          cp tools/README_TEST.txt .test-kit/
+          rm -rf test-kit
+          mkdir -p test-kit
+          cp -R apps/mutants-merge/dist/. test-kit/
+          cp tools/START_TEST.cmd test-kit/
+          cp tools/START_TEST.ps1 test-kit/
+          cp tools/README_TEST.txt test-kit/
 
       - name: Upload Yandex package
         uses: actions/upload-artifact@v4
@@ -53,6 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mutants-test-kit
-          path: .test-kit/
+          path: test-kit/
           if-no-files-found: error
           retention-days: 7
