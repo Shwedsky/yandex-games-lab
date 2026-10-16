@@ -1,0 +1,33 @@
+name: Apply Mutants language fallback
+
+on:
+  push:
+    branches: [feature/mutants-playable-v0]
+    paths:
+      - 'scripts/fix-mutants-language-fallback.mjs'
+      - '.github/workflows/apply-mutants-language-fallback.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/mutants-playable-v0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch language fallback
+        run: node scripts/fix-mutants-language-fallback.mjs
+      - name: Remove one-shot helper and commit
+        run: |
+          rm scripts/fix-mutants-language-fallback.mjs
+          rm .github/workflows/apply-mutants-language-fallback.yml
+          git config user.name "Shwedsky"
+          git config user.email "118769760+Shwedsky@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(mutants): use Yandex RU/EN fallback language set"
+          git push origin HEAD:feature/mutants-playable-v0
