@@ -964,8 +964,10 @@ class MergeScene extends Phaser.Scene {
 
 async function bootstrap() {
   await yandexBridge.init();
-  const platformLanguage = yandexBridge.getLanguage(detectLocale());
-  locale = platformLanguage.startsWith('ru') ? 'ru' : 'en';
+  const platformLanguage = yandexBridge.getLanguage(detectLocale()).toLowerCase();
+  // Yandex fallback set for a game that ships RU + EN only:
+  // be/kk/uk/uz -> RU, every other unsupported platform language -> EN.
+  locale = ['ru', 'be', 'kk', 'uk', 'uz'].includes(platformLanguage) ? 'ru' : 'en';
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
