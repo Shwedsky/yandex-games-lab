@@ -1,0 +1,13 @@
+{
+  "name": "yandex-games-lab",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:mutants": "npm --workspace mutants-merge run dev",
+    "dev:reseller": "npm --workspace reseller-empire run dev",
+    "build:mutants": "npm --workspace mutants-merge run build",
+    "build:reseller": "npm --workspace reseller-empire run build",
+    "build": "npm run build:mutants && npm run build:reseller"
+  }
+}
